@@ -1,0 +1,40 @@
+[
+  {
+    "id": 1,
+    "nomeCompleto": "Administrador IGEPPS",
+    "email": "admin@igepps.pa.gov.br",
+    "senha": "$2b$10$M1IQb8t1ogWf5zLrmt/cYOETlFpM.nyD1Us390W6j8aU07m6M1l6S",
+    "cpf": "000.000.000-00",
+    "whatsapp": "(91) 00000-0000",
+    "dataNascimento": "1990-01-01",
+    "endereco": "",
+    "cidade": "Belém",
+    "estado": "PA",
+    "cep": "00000-000",
+    "foto": "",
+    "status": "aprovado",
+    "tipo": "admin",
+    "dataCadastro": "2025-11-15T00:00:00.000Z",
+    "cursos": [],
+    "ativo": true
+  },
+  {
+    "id": 1763173785185,
+    "nomeCompleto": "francisco de assis da silva alcantara",
+    "email": "assisalcantara.pa@gmail.com",
+    "senha": "$2b$10$jpC7rhKVLQD1C73diOz6S.Wx2ZjLdXZRlpw/XYoO1/fMr5DaI64h6",
+    "cpf": "754.689.723-87",
+    "whatsapp": "(91) 99312-1501",
+    "dataNascimento": "1978-04-01",
+    "endereco": "rua humberto campos, 88, cj nova esperança",
+    "cidade": "ananindeua",
+    "estado": "PA",
+    "cep": "67013-288",
+    "foto": "",
+    "status": "aprovado",
+    "tipo": "aluno",
+    "dataCadastro": "2025-11-15T02:29:45.185Z",
+    "cursos": [],
+    "ativo": true
+  }
+]

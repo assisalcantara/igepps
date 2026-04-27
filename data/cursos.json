@@ -1,0 +1,47 @@
+[
+  {
+    "id": 1763172911514,
+    "titulo": "Planejamento da Aposentadoria e Vida Pós-Carreira",
+    "descricao": "<div>➢ Transição psicossocial para a aposentadoria;&nbsp;</div><div>➢ Reorganização da identidade profissional;&nbsp;</div><div>➢ Propósito e projetos de vida na maturidade.</div>",
+    "categoria": "Psicossocial",
+    "cargaHoraria": "30",
+    "thumbnail": "/uploads/thumbnails/thumb_1777291685643.png",
+    "ativo": true,
+    "dataCriacao": "2025-11-15T02:15:11.514Z",
+    "modulos": [
+      {
+        "id": 1763172962807,
+        "titulo": "Módulo 01",
+        "descricao": "Transição psicossocial para a aposentadoria",
+        "ordem": 1,
+        "aulas": [
+          {
+            "id": 1763173065423,
+            "titulo": "Apresentação",
+            "descricao": "Apresentação do Módulo com o professor.",
+            "videoUrl": "https://youtu.be/JBw-mdLSg38?list=RDMMJBw-mdLSg38",
+            "duracao": "6",
+            "ordem": 1,
+            "materiais": [],
+            "questoes": []
+          }
+        ]
+      },
+      {
+        "id": 1763172982180,
+        "titulo": "Módulo 02",
+        "descricao": "Reorganização da identidade profissional",
+        "ordem": 2,
+        "aulas": []
+      },
+      {
+        "id": 1763172999264,
+        "titulo": "Módulo 03",
+        "descricao": "Propósito e projetos de vida na maturidade",
+        "ordem": 3,
+        "aulas": []
+      }
+    ],
+    "videoApresentacao": ""
+  }
+]
