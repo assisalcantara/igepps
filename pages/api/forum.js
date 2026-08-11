@@ -1,22 +1,64 @@
-import fs from 'fs';
-import path from 'path';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 
-const forumPath = path.join(process.cwd(), 'data', 'forum.json');
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://kmlwgvrtissssknqpvbg.supabase.co';
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-// Função auxiliar para carregar fallback local se Supabase falhar ou estiver vazio
-function carregarFallbackLocal() {
-  try {
-    if (fs.existsSync(forumPath)) {
-      return JSON.parse(fs.readFileSync(forumPath, 'utf8'));
-    }
-  } catch (e) {
-    console.error('Erro ao ler fallback local forum.json:', e);
+// Cliente administrativo exclusivamente via variáveis de ambiente server-side
+const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey || '', {
+  auth: { autoRefreshToken: false, persistSession: false }
+});
+
+// Valida o usuário através do Bearer token enviado no header Authorization
+async function obterUsuarioAutenticado(req) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null;
   }
-  return [];
+  const token = authHeader.split(' ')[1];
+  if (!token) return null;
+
+  try {
+    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+    if (error || !user) return null;
+
+    // Buscar perfil funcional em public.usuarios
+    const { data: perfil } = await supabaseAdmin
+      .from('usuarios')
+      .select('id, nome_completo, email, tipo, status')
+      .eq('id', user.id)
+      .single();
+
+    return {
+      id: user.id,
+      email: user.email,
+      nomeCompleto: perfil?.nome_completo || user.user_metadata?.nome || user.email.split('@')[0],
+      tipo: perfil?.tipo || user.user_metadata?.tipo || 'aluno',
+      status: perfil?.status || 'ativo'
+    };
+  } catch (err) {
+    console.error('Erro na validação do token Supabase Auth:', err);
+    return null;
+  }
 }
 
-// Formata o tópico do Supabase para o formato esperado pelo components/Forum.js
+// Verifica se o usuário (seja professor ou admin) pode moderar o curso especificado
+async function podeModerarCurso(usuario, cursoId) {
+  if (!usuario) return false;
+  if (usuario.tipo === 'admin') return true;
+  if (usuario.tipo === 'professor') {
+    const { data: vinculo } = await supabaseAdmin
+      .from('curso_professores')
+      .select('curso_id')
+      .eq('professor_id', usuario.id)
+      .eq('curso_id', String(cursoId))
+      .maybeSingle();
+
+    return Boolean(vinculo);
+  }
+  return false;
+}
+
+// Formata o tópico do Supabase para o contrato esperado por components/Forum.js
 function formatarTopicoSupabase(topico) {
   const respostas = (topico.forum_respostas || []).map(r => ({
     id: r.id,
@@ -50,113 +92,80 @@ function formatarTopicoSupabase(topico) {
 export default async function handler(req, res) {
   try {
     // -------------------------------------------------------------------------
-    // GET: Buscar Tópicos
+    // GET: Leitura pública ou autenticada de tópicos
     // -------------------------------------------------------------------------
     if (req.method === 'GET') {
       const { cursoId } = req.query;
 
-      try {
-        let query = supabase
-          .from('forum_topicos')
-          .select(`
-            id, curso_id, autor_id, titulo, conteudo, fixado, fechado, visualizacoes, created_at, updated_at,
-            cursos ( id, titulo ),
-            usuarios ( id, nome_completo, tipo ),
-            forum_respostas (
-              id, autor_id, conteudo, created_at,
-              usuarios ( id, nome_completo, tipo )
-            )
-          `)
-          .order('created_at', { ascending: false });
+      let query = supabaseAdmin
+        .from('forum_topicos')
+        .select(`
+          id, curso_id, autor_id, titulo, conteudo, fixado, fechado, visualizacoes, created_at, updated_at,
+          cursos ( id, titulo ),
+          usuarios ( id, nome_completo, tipo ),
+          forum_respostas (
+            id, autor_id, conteudo, created_at,
+            usuarios ( id, nome_completo, tipo )
+          )
+        `)
+        .order('created_at', { ascending: false });
 
-        if (cursoId) {
-          query = query.eq('curso_id', String(cursoId));
-        }
-
-        const { data: dbTopicos, error: dbError } = await query;
-
-        if (!dbError && dbTopicos) {
-          const topicosFormatados = dbTopicos.map(formatarTopicoSupabase);
-          return res.status(200).json(topicosFormatados);
-        } else if (dbError) {
-          console.warn('Erro ao consultar Supabase (usando fallback):', dbError.message);
-        }
-      } catch (errDb) {
-        console.warn('Exceção ao consultar Supabase (usando fallback):', errDb.message);
-      }
-
-      // Fallback Local JSON
-      const topicosLocais = carregarFallbackLocal();
       if (cursoId) {
-        const filtrados = topicosLocais.filter(t => String(t.cursoId) === String(cursoId));
-        return res.status(200).json(filtrados);
+        query = query.eq('curso_id', String(cursoId));
       }
-      return res.status(200).json(topicosLocais);
+
+      const { data: dbTopicos, error: dbError } = await query;
+
+      if (dbError) {
+        console.error('Erro na consulta do Fórum no Supabase:', dbError);
+        return res.status(500).json({ erro: 'Erro ao consultar tópicos do fórum no banco de dados' });
+      }
+
+      const topicosFormatados = (dbTopicos || []).map(formatarTopicoSupabase);
+      return res.status(200).json(topicosFormatados);
     }
 
     // -------------------------------------------------------------------------
-    // POST: Criar Novo Tópico
+    // POST: Criar Novo Tópico (Requer Autenticação)
     // -------------------------------------------------------------------------
     if (req.method === 'POST') {
-      const { cursoId, autorId, autorNome, autorTipo, titulo, conteudo } = req.body;
-
-      if (!cursoId || !autorId || !titulo || !conteudo) {
-        return res.status(400).json({ erro: 'Campos obrigatórios faltando' });
+      const usuarioAuth = await obterUsuarioAutenticado(req);
+      if (!usuarioAuth) {
+        return res.status(401).json({ erro: 'Usuário não autenticado ou token inválido' });
       }
 
-      try {
-        const { data: novoTopicoDb, error: errInsert } = await supabase
-          .from('forum_topicos')
-          .insert({
-            curso_id: String(cursoId),
-            autor_id: String(autorId),
-            titulo: titulo,
-            conteudo: conteudo
-          })
-          .select(`
-            id, curso_id, autor_id, titulo, conteudo, fixado, fechado, visualizacoes, created_at, updated_at,
-            cursos ( id, titulo ),
-            usuarios ( id, nome_completo, tipo )
-          `)
-          .single();
+      const { cursoId, titulo, conteudo } = req.body;
 
-        if (!errInsert && novoTopicoDb) {
-          const topicoFormatado = formatarTopicoSupabase({ ...novoTopicoDb, forum_respostas: [] });
-          return res.status(201).json(topicoFormatado);
-        } else if (errInsert) {
-          console.warn('Erro ao criar tópico no Supabase (tentando fallback):', errInsert.message);
-        }
-      } catch (errPostDb) {
-        console.warn('Exceção ao criar tópico no Supabase (tentando fallback):', errPostDb.message);
+      if (!cursoId || !titulo || !conteudo) {
+        return res.status(400).json({ erro: 'Campos obrigatórios faltando (cursoId, titulo, conteudo)' });
       }
 
-      // Fallback local se Supabase falhar
-      const topicosLocais = carregarFallbackLocal();
-      const novoTopicoLocal = {
-        id: Date.now(),
-        cursoId: cursoId,
-        autorId,
-        autorNome: autorNome || 'Usuário',
-        autorTipo: autorTipo || 'aluno',
-        titulo,
-        conteudo,
-        respostas: [],
-        visualizacoes: 0,
-        fixado: false,
-        fechado: false,
-        dataCriacao: new Date().toISOString(),
-        dataUltimaResposta: new Date().toISOString()
-      };
-      topicosLocais.push(novoTopicoLocal);
-      try {
-        fs.writeFileSync(forumPath, JSON.stringify(topicosLocais, null, 2));
-      } catch (e) {}
+      const { data: novoTopicoDb, error: errInsert } = await supabaseAdmin
+        .from('forum_topicos')
+        .insert({
+          curso_id: String(cursoId),
+          autor_id: usuarioAuth.id, // SEMPRE o UUID validado via auth.getUser()
+          titulo: String(titulo).trim(),
+          conteudo: String(conteudo).trim()
+        })
+        .select(`
+          id, curso_id, autor_id, titulo, conteudo, fixado, fechado, visualizacoes, created_at, updated_at,
+          cursos ( id, titulo ),
+          usuarios ( id, nome_completo, tipo )
+        `)
+        .single();
 
-      return res.status(201).json(novoTopicoLocal);
+      if (errInsert || !novoTopicoDb) {
+        console.error('Erro ao inserir tópico no Supabase:', errInsert);
+        return res.status(500).json({ erro: 'Falha ao gravar tópico no banco de dados', detalhe: errInsert?.message });
+      }
+
+      const topicoFormatado = formatarTopicoSupabase({ ...novoTopicoDb, forum_respostas: [] });
+      return res.status(201).json(topicoFormatado);
     }
 
     // -------------------------------------------------------------------------
-    // PUT: Ações (responder, fixar, fechar, visualizar) ou Atualização Geral
+    // PUT: Ações (responder, fixar, fechar, visualizar)
     // -------------------------------------------------------------------------
     if (req.method === 'PUT') {
       const { id } = req.query;
@@ -166,209 +175,206 @@ export default async function handler(req, res) {
         return res.status(400).json({ erro: 'ID do tópico não informado' });
       }
 
-      try {
-        // 1. Ação: Responder Tópico
+      // Buscar tópico no banco para validações de moderador/curso/status
+      const { data: topicoExistente, error: errTopico } = await supabaseAdmin
+        .from('forum_topicos')
+        .select('id, curso_id, autor_id, fixado, fechado, visualizacoes')
+        .eq('id', String(id))
+        .single();
+
+      if (errTopico || !topicoExistente) {
+        return res.status(404).json({ erro: 'Tópico não encontrado' });
+      }
+
+      // 1. Ação: Visualizar (pode ser anônima ou autenticada)
+      if (acao === 'visualizar') {
+        await supabaseAdmin
+          .from('forum_topicos')
+          .update({ visualizacoes: (topicoExistente.visualizacoes || 0) + 1 })
+          .eq('id', String(id));
+      } 
+      else {
+        // Exige autenticação para responder, fixar, fechar ou atualizar
+        const usuarioAuth = await obterUsuarioAutenticado(req);
+        if (!usuarioAuth) {
+          return res.status(401).json({ erro: 'Usuário não autenticado ou token inválido' });
+        }
+
+        // 2. Ação: Responder Tópico
         if (acao === 'responder') {
-          const { autorId, conteudo } = dados;
-          if (!autorId || !conteudo) {
-            return res.status(400).json({ erro: 'Dados da resposta incompletos' });
+          if (topicoExistente.fechado) {
+            return res.status(403).json({ erro: 'Este tópico está fechado e não aceita mais respostas' });
           }
 
-          const { error: errResp } = await supabase
+          const { conteudo } = dados;
+          if (!conteudo || !String(conteudo).trim()) {
+            return res.status(400).json({ erro: 'Conteúdo da resposta é obrigatório' });
+          }
+
+          const { error: errResp } = await supabaseAdmin
             .from('forum_respostas')
             .insert({
               topico_id: String(id),
-              autor_id: String(autorId),
-              conteudo: conteudo
+              autor_id: usuarioAuth.id, // SEMPRE o UUID validado
+              conteudo: String(conteudo).trim()
             });
 
           if (errResp) {
-            console.warn('Erro ao inserir resposta no Supabase:', errResp.message);
+            console.error('Erro ao inserir resposta no Supabase:', errResp);
+            return res.status(500).json({ erro: 'Falha ao gravar resposta no banco de dados' });
           }
         } 
-        // 2. Ação: Fixar Tópico
+        // 3. Ação: Fixar Tópico (Requer autorização de moderador/admin)
         else if (acao === 'fixar') {
-          const { data: topicoAtual } = await supabase
-            .from('forum_topicos')
-            .select('fixado')
-            .eq('id', String(id))
-            .single();
-
-          if (topicoAtual) {
-            await supabase
-              .from('forum_topicos')
-              .update({ fixado: !topicoAtual.fixado })
-              .eq('id', String(id));
+          const eModerador = await podeModerarCurso(usuarioAuth, topicoExistente.curso_id);
+          if (!eModerador) {
+            return res.status(403).json({ erro: 'Você não tem permissão para moderar este curso' });
           }
+
+          await supabaseAdmin
+            .from('forum_topicos')
+            .update({ fixado: !topicoExistente.fixado })
+            .eq('id', String(id));
         } 
-        // 3. Ação: Fechar Tópico
+        // 4. Ação: Fechar Tópico (Requer autorização de moderador/admin)
         else if (acao === 'fechar') {
-          const { data: topicoAtual } = await supabase
-            .from('forum_topicos')
-            .select('fechado')
-            .eq('id', String(id))
-            .single();
-
-          if (topicoAtual) {
-            await supabase
-              .from('forum_topicos')
-              .update({ fechado: !topicoAtual.fechado })
-              .eq('id', String(id));
+          const eModerador = await podeModerarCurso(usuarioAuth, topicoExistente.curso_id);
+          if (!eModerador) {
+            return res.status(403).json({ erro: 'Você não tem permissão para moderar este curso' });
           }
-        } 
-        // 4. Ação: Visualizar Tópico
-        else if (acao === 'visualizar') {
-          const { data: topicoAtual } = await supabase
-            .from('forum_topicos')
-            .select('visualizacoes')
-            .eq('id', String(id))
-            .single();
 
-          if (topicoAtual) {
-            await supabase
-              .from('forum_topicos')
-              .update({ visualizacoes: (topicoAtual.visualizacoes || 0) + 1 })
-              .eq('id', String(id));
-          }
+          await supabaseAdmin
+            .from('forum_topicos')
+            .update({ fechado: !topicoExistente.fechado })
+            .eq('id', String(id));
         } 
-        // 5. Atualização Geral
+        // 5. Atualização Geral (Próprio autor ou moderador)
         else {
+          const ehAutor = usuarioAuth.id === topicoExistente.autor_id;
+          const eModerador = await podeModerarCurso(usuarioAuth, topicoExistente.curso_id);
+
+          if (!ehAutor && !eModerador) {
+            return res.status(403).json({ erro: 'Sem permissão para alterar este tópico' });
+          }
+
           const updatePayload = {};
-          if (dados.titulo) updatePayload.titulo = dados.titulo;
-          if (dados.conteudo) updatePayload.conteudo = dados.conteudo;
-          if (typeof dados.fixado === 'boolean') updatePayload.fixado = dados.fixado;
-          if (typeof dados.fechado === 'boolean') updatePayload.fechado = dados.fechado;
+          if (dados.titulo) updatePayload.titulo = String(dados.titulo).trim();
+          if (dados.conteudo) updatePayload.conteudo = String(dados.conteudo).trim();
 
           if (Object.keys(updatePayload).length > 0) {
-            await supabase
+            await supabaseAdmin
               .from('forum_topicos')
               .update(updatePayload)
               .eq('id', String(id));
           }
         }
-
-        // Retornar tópico atualizado do Supabase
-        const { data: topicoAtualizado, error: errFetch } = await supabase
-          .from('forum_topicos')
-          .select(`
-            id, curso_id, autor_id, titulo, conteudo, fixado, fechado, visualizacoes, created_at, updated_at,
-            cursos ( id, titulo ),
-            usuarios ( id, nome_completo, tipo ),
-            forum_respostas (
-              id, autor_id, conteudo, created_at,
-              usuarios ( id, nome_completo, tipo )
-            )
-          `)
-          .eq('id', String(id))
-          .single();
-
-        if (!errFetch && topicoAtualizado) {
-          return res.status(200).json(formatarTopicoSupabase(topicoAtualizado));
-        }
-      } catch (errPutDb) {
-        console.warn('Exceção no PUT Supabase (tentando fallback local):', errPutDb.message);
       }
 
-      // Fallback local se Supabase não tiver o tópico
-      const topicosLocais = carregarFallbackLocal();
-      const topicoIndex = topicosLocais.findIndex(t => String(t.id) === String(id));
+      // Retornar o tópico atualizado no contrato esperado
+      const { data: topicoAtualizado, error: errFetch } = await supabaseAdmin
+        .from('forum_topicos')
+        .select(`
+          id, curso_id, autor_id, titulo, conteudo, fixado, fechado, visualizacoes, created_at, updated_at,
+          cursos ( id, titulo ),
+          usuarios ( id, nome_completo, tipo ),
+          forum_respostas (
+            id, autor_id, conteudo, created_at,
+            usuarios ( id, nome_completo, tipo )
+          )
+        `)
+        .eq('id', String(id))
+        .single();
 
-      if (topicoIndex !== -1) {
-        if (acao === 'responder') {
-          topicosLocais[topicoIndex].respostas.push({
-            id: Date.now(),
-            autorId: dados.autorId,
-            autorNome: dados.autorNome,
-            autorTipo: dados.autorTipo,
-            conteudo: dados.conteudo,
-            dataCriacao: new Date().toISOString()
-          });
-          topicosLocais[topicoIndex].dataUltimaResposta = new Date().toISOString();
-        } else if (acao === 'fixar') {
-          topicosLocais[topicoIndex].fixado = !topicosLocais[topicoIndex].fixado;
-        } else if (acao === 'fechar') {
-          topicosLocais[topicoIndex].fechado = !topicosLocais[topicoIndex].fechado;
-        } else if (acao === 'visualizar') {
-          topicosLocais[topicoIndex].visualizacoes += 1;
-        } else {
-          topicosLocais[topicoIndex] = {
-            ...topicosLocais[topicoIndex],
-            ...dados,
-            dataAtualizacao: new Date().toISOString()
-          };
-        }
-
-        try {
-          fs.writeFileSync(forumPath, JSON.stringify(topicosLocais, null, 2));
-        } catch (e) {}
-
-        return res.status(200).json(topicosLocais[topicoIndex]);
+      if (errFetch || !topicoAtualizado) {
+        return res.status(500).json({ erro: 'Erro ao buscar tópico atualizado' });
       }
 
-      return res.status(404).json({ erro: 'Tópico não encontrado' });
+      return res.status(200).json(formatarTopicoSupabase(topicoAtualizado));
     }
 
     // -------------------------------------------------------------------------
-    // DELETE: Excluir Tópico ou Resposta Específica
+    // DELETE: Excluir Tópico ou Resposta
     // -------------------------------------------------------------------------
     if (req.method === 'DELETE') {
+      const usuarioAuth = await obterUsuarioAutenticado(req);
+      if (!usuarioAuth) {
+        return res.status(401).json({ erro: 'Usuário não autenticado ou token inválido' });
+      }
+
       const { id, respostaId } = req.query;
 
       if (!id) {
         return res.status(400).json({ erro: 'ID do tópico não informado' });
       }
 
-      try {
-        if (respostaId) {
-          // Deletar resposta específica
-          const { error: errDelResp } = await supabase
-            .from('forum_respostas')
-            .delete()
-            .eq('id', String(respostaId));
-
-          if (!errDelResp) {
-            return res.status(200).json({ mensagem: 'Resposta excluída com sucesso' });
-          }
-        } else {
-          // Deletar tópico inteiro (respostas são apagadas via CASCADE no banco)
-          const { error: errDelTopico } = await supabase
-            .from('forum_topicos')
-            .delete()
-            .eq('id', String(id));
-
-          if (!errDelTopico) {
-            return res.status(200).json({ mensagem: 'Tópico excluído com sucesso' });
-          }
-        }
-      } catch (errDelDb) {
-        console.warn('Exceção no DELETE Supabase (usando fallback):', errDelDb.message);
-      }
-
-      // Fallback local se Supabase falhar
-      let topicosLocais = carregarFallbackLocal();
+      // 1. Deletar resposta específica
       if (respostaId) {
-        const topicoIndex = topicosLocais.findIndex(t => String(t.id) === String(id));
-        if (topicoIndex !== -1) {
-          topicosLocais[topicoIndex].respostas = topicosLocais[topicoIndex].respostas.filter(
-            r => String(r.id) !== String(respostaId)
-          );
+        const { data: respExistente, error: errFindResp } = await supabaseAdmin
+          .from('forum_respostas')
+          .select('id, topico_id, autor_id, forum_topicos(curso_id)')
+          .eq('id', String(respostaId))
+          .single();
+
+        if (errFindResp || !respExistente) {
+          return res.status(404).json({ erro: 'Resposta não encontrada' });
         }
-      } else {
-        topicosLocais = topicosLocais.filter(t => String(t.id) !== String(id));
+
+        const ehAutorResp = usuarioAuth.id === respExistente.autor_id;
+        const eModeradorResp = await podeModerarCurso(usuarioAuth, respExistente.forum_topicos?.curso_id);
+
+        if (!ehAutorResp && !eModeradorResp) {
+          return res.status(403).json({ erro: 'Sem permissão para excluir esta resposta' });
+        }
+
+        const { error: errDelResp } = await supabaseAdmin
+          .from('forum_respostas')
+          .delete()
+          .eq('id', String(respostaId));
+
+        if (errDelResp) {
+          return res.status(500).json({ erro: 'Falha ao excluir resposta no banco' });
+        }
+
+        return res.status(200).json({ mensagem: 'Resposta excluída com sucesso' });
+      } 
+      // 2. Deletar tópico inteiro
+      else {
+        const { data: topicoExistente, error: errFindTopico } = await supabaseAdmin
+          .from('forum_topicos')
+          .select('id, curso_id, autor_id')
+          .eq('id', String(id))
+          .single();
+
+        if (errFindTopico || !topicoExistente) {
+          return res.status(404).json({ erro: 'Tópico não encontrado' });
+        }
+
+        const ehAutor = usuarioAuth.id === topicoExistente.autor_id;
+        const eModerador = await podeModerarCurso(usuarioAuth, topicoExistente.curso_id);
+
+        if (!ehAutor && !eModerador) {
+          return res.status(403).json({ erro: 'Sem permissão para excluir este tópico' });
+        }
+
+        const { error: errDelTopico } = await supabaseAdmin
+          .from('forum_topicos')
+          .delete()
+          .eq('id', String(id));
+
+        if (errDelTopico) {
+          return res.status(500).json({ erro: 'Falha ao excluir tópico no banco' });
+        }
+
+        return res.status(200).json({ mensagem: 'Tópico excluído com sucesso' });
       }
-
-      try {
-        fs.writeFileSync(forumPath, JSON.stringify(topicosLocais, null, 2));
-      } catch (e) {}
-
-      return res.status(200).json({ mensagem: 'Excluído com sucesso' });
     }
 
     return res.status(405).json({ erro: 'Método não permitido' });
 
   } catch (error) {
-    console.error('Erro na API do fórum:', error);
-    return res.status(500).json({ erro: 'Erro interno do servidor' });
+    console.error('Erro não tratado na API do fórum:', error);
+    return res.status(500).json({ erro: 'Erro interno do servidor', detalhe: error.message });
   }
 }
+
 
