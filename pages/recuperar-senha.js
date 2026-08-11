@@ -97,19 +97,17 @@ export default function RecuperarSenha() {
       <div className="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md">
         
         {/* Header Institucional EDEP */}
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-3">
-            <img src="/images/logo_edep.png" alt="EDEP" className="h-16 w-auto" />
-          </div>
-          <Link href="/login">
-            <button className="text-gray-500 hover:text-gray-700 transition" title="Voltar ao Login">
+        <div className="relative flex flex-col items-center mb-4">
+          <Link href="/login" className="absolute right-0 top-0">
+            <button className="text-gray-400 hover:text-gray-600 transition p-1" title="Voltar ao Login">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </Link>
+          <img src="/images/logo_edep2.png" alt="EDEP" className="h-20 md:h-24 w-auto object-contain mb-1 drop-shadow-sm" />
+          <p className="text-center text-gray-600 text-sm font-medium">Recuperação de Acesso — EDEP</p>
         </div>
-        <p className="text-center text-gray-600 mb-6 text-sm">Recuperação de Acesso — EDEP</p>
 
         {/* Mensagens de Feedback */}
         {erro && (
