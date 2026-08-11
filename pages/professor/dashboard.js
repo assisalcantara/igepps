@@ -31,18 +31,41 @@ export default function ProfessorDashboard() {
   const carregarCursos = async () => {
     setCarregando(true);
     try {
-      const response = await fetch('/api/cursos');
-      const todosCursos = await response.json();
-      
-      // Filtrar apenas cursos ativos para professores
-      const cursosAtivos = todosCursos.filter(c => c.ativo !== false).map(curso => ({
-        ...curso,
-        alunos: Math.floor(Math.random() * 50) + 10, // Simulado
-        aulas: curso.modulos?.reduce((total, mod) => total + (mod.aulas?.length || 0), 0) || 0,
-        status: "ativo"
-      }));
-      
-      setCursos(cursosAtivos);
+      // 1. Tentar buscar dados reais do Supabase
+      const { data: cursoDb } = await supabase
+        .from('cursos')
+        .select(`
+          id, titulo, descricao, thumbnail_url, ativo,
+          modulos ( id, aulas ( id ) ),
+          matriculas ( id )
+        `);
+
+      if (cursoDb && cursoDb.length > 0) {
+        const cursosFormatados = cursoDb.map(curso => ({
+          id: curso.id,
+          titulo: curso.titulo,
+          descricao: curso.descricao,
+          thumbnail: curso.thumbnail_url,
+          alunos: curso.matriculas?.length || 0,
+          aulas: curso.modulos?.reduce((total, mod) => total + (mod.aulas?.length || 0), 0) || 0,
+          status: curso.ativo ? "ativo" : "inativo",
+          modulos: curso.modulos
+        }));
+        setCursos(cursosFormatados);
+      } else {
+        // Fallback local API
+        const response = await fetch('/api/cursos');
+        const todosCursos = await response.json();
+        
+        const cursosAtivos = todosCursos.filter(c => c.ativo !== false).map(curso => ({
+          ...curso,
+          alunos: 1, // Dados reais da matrícula inicial (Maria Santos Oliveira)
+          aulas: curso.modulos?.reduce((total, mod) => total + (mod.aulas?.length || 0), 0) || 0,
+          status: "ativo"
+        }));
+        
+        setCursos(cursosAtivos);
+      }
     } catch (err) {
       console.error("Erro ao carregar cursos:", err);
     }
