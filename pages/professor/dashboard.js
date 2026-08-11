@@ -118,7 +118,23 @@ export default function ProfessorDashboard() {
                     <div className="h-32 bg-gradient-to-r from-blue-500 to-blue-700"></div>
                     <div className="p-6">
                       <h4 className="text-lg font-bold text-gray-800 mb-2">{curso.titulo}</h4>
-                      <p className="text-gray-600 text-sm mb-4">{curso.descricao}</p>
+                      <p className="text-gray-600 text-sm mb-4 line-clamp-3">
+                        {curso.descricao
+                          ?.replace(/<br\s*\/?>/gi, '\n')
+                          .replace(/<\/p>\s*<p[^>]*>/gi, '\n')
+                          .replace(/<p[^>]*>/gi, '')
+                          .replace(/<\/p>/gi, '')
+                          .replace(/<div[^>]*>/gi, '')
+                          .replace(/<\/div>/gi, '\n')
+                          .replace(/<[^>]*>/g, '')
+                          .replace(/&nbsp;/g, ' ')
+                          .replace(/&amp;/g, '&')
+                          .replace(/&lt;/g, '<')
+                          .replace(/&gt;/g, '>')
+                          .replace(/&quot;/g, '"')
+                          .replace(/\n\s*\n/g, '\n')
+                          .trim() || 'Sem descrição.'}
+                      </p>
 
                       <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
                         <div className="bg-blue-50 p-2 rounded">
