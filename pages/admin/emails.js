@@ -5,9 +5,10 @@ import AdminSidebar from '../../components/AdminSidebar';
 import AdminEmails from '../../components/AdminEmails';
 import { safeGetItem } from '../../lib/storage';
 
-export default function Emails() {
+export default function EmailsPage() {
   const router = useRouter();
   const [usuario, setUsuario] = useState(null);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   useEffect(() => {
     const usuarioStorage = safeGetItem('usuario');
@@ -35,11 +36,11 @@ export default function Emails() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <AdminHeader />
-      <div className="flex">
-        <AdminSidebar />
-        <main className="flex-1 p-8">
+    <div className="min-h-screen bg-gray-100 flex">
+      <AdminSidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
+      <div className="flex-1 min-w-0">
+        <AdminHeader usuario={usuario} isCollapsed={isCollapsed} />
+        <main className="p-8 pt-20">
           <AdminEmails />
         </main>
       </div>

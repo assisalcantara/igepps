@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
 import { safeRemoveItem } from '../lib/storage';
 
-export default function AdminHeader({ usuario }) {
+export default function AdminHeader({ usuario, isCollapsed }) {
   const router = useRouter();
   const handleLogout = () => {
     safeRemoveItem("token");
@@ -9,8 +9,11 @@ export default function AdminHeader({ usuario }) {
     router.push("/");
   };
   return (
-    <header className="bg-white border-b border-gray-200 shadow-sm fixed top-0 right-0 h-16 z-10 transition-all duration-300" style={{ left: '0' }}>
-      <div className="flex items-center justify-between h-16" style={{ marginLeft: 'var(--sidebar-width, 256px)' }}>
+    <header 
+      className="bg-white border-b border-gray-200 shadow-sm fixed top-0 right-0 h-16 z-10 transition-all duration-300"
+      style={{ left: isCollapsed ? '80px' : '256px' }}
+    >
+      <div className="flex items-center justify-between h-16 px-6">
         <div className="flex items-center gap-4 pl-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">EDEP</h1>

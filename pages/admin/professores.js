@@ -8,33 +8,36 @@ import { safeGetItem } from '@/lib/storage';
 export default function ProfessoresPage() {
   const router = useRouter();
   const [usuario, setUsuario] = useState(null);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   useEffect(() => {
-    const usu = safeGetItem("usuario");
-    if (!usu) {
-      router.push("/login");
-      return;
+    const usuarioStorage = safeGetItem('usuario');
+    if (usuarioStorage) {
+      const usuarioData = JSON.parse(usuarioStorage);
+      setUsuario(usuarioData);
+      
+      if (usuarioData.tipo !== 'admin') {
+        router.push('/dashboard');
+      }
+    } else {
+      router.push('/login');
     }
-
-    const u = JSON.parse(usu);
-    if (u.tipo !== "admin") {
-      router.push("/dashboard");
-      return;
-    }
-
-    setUsuario(u);
   }, []);
 
   if (!usuario) {
-    return <div className="flex items-center justify-center h-screen">Carregando...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p>Carregando...</p>
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <AdminHeader usuario={usuario} />
-      <div className="flex">
-        <AdminSidebar />
-        <main className="flex-1 p-8">
+    <div className="min-h-screen bg-gray-100 flex">
+      <AdminSidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
+      <div className="flex-1 min-w-0">
+        <AdminHeader usuario={usuario} isCollapsed={isCollapsed} />
+        <main className="p-8 pt-20">
           <AdminProfessores />
         </main>
       </div>

@@ -8,6 +8,7 @@ import { safeGetItem } from '../../lib/storage';
 export default function BlogPage() {
   const router = useRouter();
   const [usuario, setUsuario] = useState(null);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   useEffect(() => {
     const usuarioStorage = safeGetItem('usuario');
@@ -32,11 +33,11 @@ export default function BlogPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <AdminHeader usuario={usuario} />
-      <div className="flex pt-16">
-        <AdminSidebar />
-        <main className="flex-1 p-8">
+    <div className="min-h-screen bg-gray-100 flex">
+      <AdminSidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
+      <div className="flex-1 min-w-0">
+        <AdminHeader usuario={usuario} isCollapsed={isCollapsed} />
+        <main className="p-8 pt-20">
           <AdminBlog />
         </main>
       </div>

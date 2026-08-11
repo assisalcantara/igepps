@@ -8,6 +8,7 @@ import { safeGetItem } from '@/lib/storage';
 export default function AdminDashboard() {
   const router = useRouter();
   const [usuario, setUsuario] = useState(null);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [stats, setStats] = useState({
     totalAlunos: 0,
     totalProfessores: 0,
@@ -96,12 +97,11 @@ export default function AdminDashboard() {
   if (!usuario) return <div className="flex items-center justify-center h-screen">Carregando...</div>;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="flex">
-        <AdminSidebar />
-        <div className="flex-1">
-          <AdminHeader usuario={usuario} />
-          <main className="p-8 bg-gradient-to-b from-gray-100 to-gray-50">
+    <div className="min-h-screen bg-gray-100 flex">
+      <AdminSidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
+      <div className="flex-1 min-w-0">
+        <AdminHeader usuario={usuario} isCollapsed={isCollapsed} />
+        <main className="p-8 pt-20 bg-gradient-to-b from-gray-100 to-gray-50">
             <div className="mb-8">
               <h2 className="text-3xl font-bold text-gray-900 mb-1">Dashboard</h2>
               <p className="text-sm text-gray-500">Visão geral do sistema EDEP (Escola Digital de Educação Previdenciária)</p>
@@ -338,24 +338,11 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                 </Link>
-
-                <Link href="/admin/forum" className="group bg-white border border-gray-200 p-6 rounded-2xl shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-200 cursor-pointer">
-                  <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 bg-gradient-to-br from-slate-100 to-slate-200 rounded-xl flex items-center justify-center group-hover:from-slate-700 group-hover:to-slate-800 transition-all">
-                      <span className="text-3xl group-hover:scale-110 transition-transform">💬</span>
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-gray-900">Fórum</h3>
-                      <p className="text-sm text-gray-500 mt-0.5">Moderar discussões</p>
-                    </div>
-                  </div>
-                </Link>
               </div>
             </>
           )}
           </main>
         </div>
-      </div>
     </div>
   );
 }

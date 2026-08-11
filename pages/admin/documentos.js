@@ -6,39 +6,38 @@ import AdminDocumentos from '../../components/AdminDocumentos';
 import { safeGetItem } from '../../lib/storage';
 
 export default function DocumentosPage() {
-  const [usuario, setUsuario] = useState(null);
   const router = useRouter();
+  const [usuario, setUsuario] = useState(null);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   useEffect(() => {
-    const usuarioLogado = safeGetItem('usuario');
-    if (!usuarioLogado) {
+    const usuarioStorage = safeGetItem('usuario');
+    if (usuarioStorage) {
+      const usuarioData = JSON.parse(usuarioStorage);
+      setUsuario(usuarioData);
+      
+      if (usuarioData.tipo !== 'admin') {
+        router.push('/dashboard');
+      }
+    } else {
       router.push('/login');
-      return;
     }
-    
-    const user = JSON.parse(usuarioLogado);
-    if (user.tipo !== 'admin') {
-      router.push('/dashboard');
-      return;
-    }
-    
-    setUsuario(user);
   }, []);
 
   if (!usuario) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-gray-600">Carregando...</div>
+      <div className="flex items-center justify-center min-h-screen">
+        <p>Carregando...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <AdminHeader usuario={usuario} />
-      <div className="flex">
-        <AdminSidebar />
-        <main className="flex-1 p-8 pt-24">
+    <div className="min-h-screen bg-gray-100 flex">
+      <AdminSidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
+      <div className="flex-1 min-w-0">
+        <AdminHeader usuario={usuario} isCollapsed={isCollapsed} />
+        <main className="p-8 pt-20">
           <AdminDocumentos />
         </main>
       </div>

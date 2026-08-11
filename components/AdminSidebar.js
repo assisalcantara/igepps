@@ -2,9 +2,13 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useState } from "react";
 
-export default function AdminSidebar() {
+export default function AdminSidebar({ isCollapsed: externalIsCollapsed, setIsCollapsed: externalSetIsCollapsed }) {
   const router = useRouter();
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [internalIsCollapsed, setInternalIsCollapsed] = useState(false);
+
+  const isCollapsed = externalIsCollapsed !== undefined ? externalIsCollapsed : internalIsCollapsed;
+  const setIsCollapsed = externalSetIsCollapsed || setInternalIsCollapsed;
+
   const isActive = (path) => router.pathname === path;
   
   const MenuItem = ({ href, icon, label, badge }) => (
@@ -48,7 +52,7 @@ export default function AdminSidebar() {
   };
 
   return (
-    <aside className={`bg-gradient-to-b from-slate-800 via-slate-900 to-slate-950 shadow-2xl h-screen sticky top-0 transition-all duration-300 ${isCollapsed ? 'w-20' : 'w-64'}`}>
+    <aside className={`bg-gradient-to-b from-slate-800 via-slate-900 to-slate-950 shadow-2xl h-screen sticky top-0 z-30 transition-all duration-300 ${isCollapsed ? 'w-20' : 'w-64'}`}>
       {/* Logo/Brand + Botão Toggle ☰ */}
       <div className="p-4 border-b border-slate-700 flex items-center justify-between h-16">
         {!isCollapsed ? (
