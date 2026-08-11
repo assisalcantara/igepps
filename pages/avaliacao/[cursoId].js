@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { safeGetItem, safeSetItem } from '../../lib/storage';
+import { supabase } from '../../lib/supabase';
 
 export default function AvaliacaoCurso() {
   const router = useRouter();
@@ -16,18 +17,37 @@ export default function AvaliacaoCurso() {
   const [enviando, setEnviando] = useState(false);
 
   useEffect(() => {
-    const usuarioStr = safeGetItem('usuario');
-    if (!usuarioStr) {
-      router.push('/login');
-      return;
+    async function inicializarAvaliacao() {
+      // 1. Obter usuário autenticado no Supabase Auth
+      const { data: sessionData } = await supabase.auth.getSession();
+      const authUser = sessionData?.session?.user;
+
+      let u = null;
+      const usuarioStr = safeGetItem('usuario');
+      if (usuarioStr) {
+        u = JSON.parse(usuarioStr);
+      }
+
+      const activeUser = u || (authUser ? {
+        id: authUser.id,
+        email: authUser.email,
+        nome: authUser.user_metadata?.nome || authUser.email.split('@')[0],
+        tipo: 'aluno'
+      } : null);
+
+      if (!activeUser) {
+        router.push('/login');
+        return;
+      }
+
+      setUsuario(activeUser);
+
+      if (cursoId) {
+        carregarCursoEAvaliacao(activeUser.id);
+      }
     }
 
-    const u = JSON.parse(usuarioStr);
-    setUsuario(u);
-
-    if (cursoId) {
-      carregarCursoEAvaliacao(u.id);
-    }
+    inicializarAvaliacao();
   }, [cursoId]);
 
   const carregarCursoEAvaliacao = async (alunoId) => {
@@ -35,7 +55,7 @@ export default function AvaliacaoCurso() {
     try {
       const response = await fetch('/api/cursos');
       const cursos = await response.json();
-      const cursoEncontrado = cursos.find(c => c.id === parseInt(cursoId));
+      const cursoEncontrado = cursos.find(c => String(c.id) === String(cursoId));
 
       if (cursoEncontrado) {
         setCurso(cursoEncontrado);
@@ -43,7 +63,34 @@ export default function AvaliacaoCurso() {
           setAvaliacao(cursoEncontrado.avaliacao);
         }
 
-        // Verificar se já existe resultado salvo no localStorage
+        // Tentar buscar última tentativa no Supabase se houver avaliação no banco
+        if (alunoId && cursoEncontrado.avaliacao?.id) {
+          const { data: tentativasDb } = await supabase
+            .from('tentativas_avaliacao')
+            .select('*')
+            .eq('aluno_id', alunoId)
+            .eq('avaliacao_id', cursoEncontrado.avaliacao.id)
+            .order('realizado_em', { ascending: false })
+            .limit(1);
+
+          if (tentativasDb && tentativasDb.length > 0) {
+            const t = tentativasDb[0];
+            const resObj = {
+              dataEnvio: t.realizado_em,
+              acertos: Math.round((t.nota_obtida / 100) * (cursoEncontrado.avaliacao.questoes?.length || 1)),
+              totalQuestoes: cursoEncontrado.avaliacao.questoes?.length || 0,
+              notaFinal: t.nota_obtida,
+              notaMinima: cursoEncontrado.avaliacao.notaMinima || 70,
+              aprovado: t.aprovado,
+              detalhamento: []
+            };
+            setResultado(resObj);
+            setCarregando(false);
+            return;
+          }
+        }
+
+        // Verificar se já existe resultado salvo no localStorage (fallback)
         const resultadoSalvo = safeGetItem(`resultado_avaliacao_${cursoId}_${alunoId}`);
         if (resultadoSalvo) {
           setResultado(JSON.parse(resultadoSalvo));
@@ -64,7 +111,7 @@ export default function AvaliacaoCurso() {
     }));
   };
 
-  const handleSubmeterAvaliacao = (e) => {
+  const handleSubmeterAvaliacao = async (e) => {
     e.preventDefault();
     if (!avaliacao || !avaliacao.questoes) return;
 
@@ -77,7 +124,7 @@ export default function AvaliacaoCurso() {
 
     setEnviando(true);
 
-    // Calcular Nota
+    // Calcular Nota (preserva 100% da lógica atual)
     let acertos = 0;
     const detalhamento = avaliacao.questoes.map(q => {
       const respostaDada = respostas[q.id];
@@ -109,6 +156,55 @@ export default function AvaliacaoCurso() {
 
     setResultado(resObj);
     safeSetItem(`resultado_avaliacao_${cursoId}_${usuario?.id}`, JSON.stringify(resObj));
+
+    // Persistir em public.tentativas_avaliacao e public.tentativa_respostas no Supabase
+    if (usuario?.id && avaliacao?.id) {
+      try {
+        const { data: novaTentativa, error: errTentativa } = await supabase
+          .from('tentativas_avaliacao')
+          .insert({
+            aluno_id: usuario.id,
+            avaliacao_id: avaliacao.id,
+            nota_obtida: notaFinal,
+            aprovado,
+            realizado_em: new Date().toISOString()
+          })
+          .select()
+          .single();
+
+        if (!errTentativa && novaTentativa) {
+          // Buscar opções do banco para mapear opcao_escolhida_id
+          const { data: questoesDb } = await supabase
+            .from('questoes')
+            .select('id, ordem, opcoes(id, texto, is_correta, ordem)')
+            .eq('avaliacao_id', avaliacao.id);
+
+          const respostasInsert = avaliacao.questoes.map(q => {
+            const idxEscolha = respostas[q.id];
+            const qDb = (questoesDb || []).find(qd => qd.id === q.id || String(qd.ordem) === String(q.id));
+            const opcoesOrdenadas = qDb?.opcoes ? [...qDb.opcoes].sort((a, b) => (a.ordem || 0) - (b.ordem || 0)) : [];
+            const opcaoEscolhida = opcoesOrdenadas[idxEscolha];
+
+            return {
+              tentativa_id: novaTentativa.id,
+              questao_id: qDb?.id || q.id,
+              opcao_escolhida_id: opcaoEscolhida?.id || null,
+              texto_opcao_snapshot: q.opcoes?.[idxEscolha] || 'Opção selecionada',
+              is_correta: q.respostaCorreta === idxEscolha
+            };
+          });
+
+          if (respostasInsert.length > 0) {
+            await supabase
+              .from('tentativa_respostas')
+              .insert(respostasInsert);
+          }
+        }
+      } catch (err) {
+        console.error('Erro ao gravar tentativa de avaliação no Supabase:', err);
+      }
+    }
+
     setEnviando(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
