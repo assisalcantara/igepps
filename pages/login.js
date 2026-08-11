@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { safeSetItem } from '../lib/storage';
+import { supabase } from '../lib/supabase';
 
 export default function Login() {
   const router = useRouter();
@@ -16,6 +17,45 @@ export default function Login() {
     setCarregando(true);
 
     try {
+      // 1. Caminho Principal: Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: email,
+        password: senha,
+      });
+
+      if (!authError && authData?.user) {
+        const authUser = authData.user;
+        
+        // Consultar perfil funcional em public.usuarios pelo UUID do usuário autenticado
+        const { data: perfilData } = await supabase
+          .from('usuarios')
+          .select('*')
+          .eq('id', authUser.id)
+          .single();
+
+        const usuarioFinal = {
+          id: authUser.id,
+          email: authUser.email,
+          nomeCompleto: perfilData?.nome_completo || authUser.user_metadata?.nome || authUser.email.split('@')[0],
+          tipo: perfilData?.tipo || authUser.user_metadata?.tipo || 'aluno',
+          status: perfilData?.status || 'ativo'
+        };
+
+        safeSetItem("token", authData.session?.access_token || ("token_" + authUser.id));
+        safeSetItem("usuario", JSON.stringify(usuarioFinal));
+
+        // Redirecionamento por tipo
+        if (usuarioFinal.tipo === "admin") {
+          router.push("/admin/dashboard");
+        } else if (usuarioFinal.tipo === "professor") {
+          router.push("/professor/dashboard");
+        } else {
+          router.push("/dashboard");
+        }
+        return;
+      }
+
+      // 2. Fallback temporário para o banco local de demonstração
       const res = await fetch("/api/usuarios");
       const usuarios = await res.json();
 
@@ -32,7 +72,6 @@ export default function Login() {
       safeSetItem("token", "token_" + usuarioEncontrado.id);
       safeSetItem("usuario", JSON.stringify(usuarioEncontrado));
 
-      // Redireciona conforme tipo de usuário
       if (usuarioEncontrado.tipo === "admin") {
         router.push("/admin/dashboard");
       } else if (usuarioEncontrado.tipo === "professor") {
@@ -41,7 +80,7 @@ export default function Login() {
         router.push("/dashboard");
       }
     } catch (err) {
-      setErro("Erro ao conectar ao servidor");
+      setErro("Erro ao conectar ao servidor de autenticação");
       setCarregando(false);
     }
   };
