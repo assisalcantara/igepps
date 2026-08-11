@@ -49,27 +49,14 @@ export default function AdminSidebar() {
 
   return (
     <aside className={`bg-gradient-to-b from-slate-800 via-slate-900 to-slate-950 shadow-2xl h-screen sticky top-0 transition-all duration-300 ${isCollapsed ? 'w-20' : 'w-64'}`}>
-      {/* Logo/Brand */}
-      <div className="p-6 border-b border-slate-700 flex items-center justify-between">
-        {!isCollapsed ? (
-          <div className="flex items-center gap-3">
-            <img src="/images/igepps-logo2.png" alt="EDEP" className="h-8 w-auto" />
-            <div>
-              <h2 className="text-white font-bold text-sm">EDEP</h2>
-              <p className="text-gray-400 text-xs">Painel Admin</p>
-            </div>
-          </div>
-        ) : (
-          <div className="flex items-center justify-center mx-auto">
-            <img src="/images/igepps-logo2.png" alt="EDEP" className="h-7 w-auto" />
-          </div>
-        )}
+      {/* Botão de Toggle da Sidebar */}
+      <div className="p-4 border-b border-slate-700 flex items-center justify-end">
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className={`p-2 hover:bg-slate-700 rounded-lg transition-colors ${isCollapsed ? 'absolute top-6 right-2' : ''}`}
+          className="p-2 hover:bg-slate-700 rounded-lg transition-colors text-gray-300 hover:text-white"
           title={isCollapsed ? "Expandir menu" : "Recolher menu"}
         >
-          <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
