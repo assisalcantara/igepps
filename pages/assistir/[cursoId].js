@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { safeGetItem, safeSetItem } from '../../lib/storage';
+import { supabase } from '../../lib/supabase';
 
 export default function AssistirCurso() {
   const router = useRouter();
@@ -12,6 +13,7 @@ export default function AssistirCurso() {
   const [moduloAtual, setModuloAtual] = useState(null);
   const [aulaAtual, setAulaAtual] = useState(null);
   const [progresso, setProgresso] = useState({});
+  const [matriculaId, setMatriculaId] = useState(null);
   const [showRespostas, setShowRespostas] = useState({});
   const [respostasUsuario, setRespostasUsuario] = useState({});
   const [carregando, setCarregando] = useState(true);
@@ -22,39 +24,88 @@ export default function AssistirCurso() {
   const [sidebarAberta, setSidebarAberta] = useState(false);
 
   useEffect(() => {
-    const usuarioStr = safeGetItem('usuario');
-    if (!usuarioStr) {
-      router.push('/login');
-      return;
+    async function inicializarAssistir() {
+      // 1. Obter usuário autenticado via Supabase Auth
+      const { data: sessionData } = await supabase.auth.getSession();
+      const authUser = sessionData?.session?.user;
+
+      let u = null;
+      const usuarioStr = safeGetItem('usuario');
+      if (usuarioStr) {
+        u = JSON.parse(usuarioStr);
+      }
+
+      const activeUser = u || (authUser ? {
+        id: authUser.id,
+        email: authUser.email,
+        nome: authUser.user_metadata?.nome || authUser.email.split('@')[0],
+        tipo: 'aluno'
+      } : null);
+
+      if (!activeUser) {
+        router.push('/login');
+        return;
+      }
+      
+      setUsuario(activeUser);
+      
+      if (cursoId) {
+        carregarCursoEProgresso(activeUser.id);
+      }
     }
-    
-    const u = JSON.parse(usuarioStr);
-    if (u.tipo !== 'aluno') {
-      router.push('/dashboard');
-      return;
-    }
-    
-    setUsuario(u);
-    
-    if (cursoId) {
-      carregarCurso();
-    }
+
+    inicializarAssistir();
   }, [cursoId]);
 
-  const carregarCurso = async () => {
+  const carregarCursoEProgresso = async (alunoId) => {
     setCarregando(true);
     try {
+      // 1. Carregar estrutura do curso via API
       const response = await fetch('/api/cursos');
       const cursos = await response.json();
-      const cursoEncontrado = cursos.find(c => c.id === parseInt(cursoId));
+      const cursoEncontrado = cursos.find(c => String(c.id) === String(cursoId));
       
       if (cursoEncontrado && cursoEncontrado.ativo) {
         setCurso(cursoEncontrado);
         
-        // Carregar progresso salvo
-        const progressoSalvo = safeGetItem(`progresso_${cursoId}_${usuario?.id}`);
-        const prog = progressoSalvo ? JSON.parse(progressoSalvo) : {};
-        setProgresso(prog);
+        let progressoMap = {};
+        let currentMatriculaId = null;
+
+        // 2. Buscar matrícula e aulas concluídas em public.progresso_aulas
+        if (alunoId) {
+          const { data: matriculaDb } = await supabase
+            .from('matriculas')
+            .select('id')
+            .eq('aluno_id', alunoId)
+            .eq('curso_id', cursoEncontrado.id)
+            .maybeSingle();
+
+          if (matriculaDb) {
+            currentMatriculaId = matriculaDb.id;
+            setMatriculaId(matriculaDb.id);
+
+            const { data: progressoDb } = await supabase
+              .from('progresso_aulas')
+              .select('aula_id')
+              .eq('matricula_id', matriculaDb.id);
+
+            if (progressoDb && progressoDb.length > 0) {
+              progressoDb.forEach(item => {
+                progressoMap[item.aula_id] = true;
+              });
+            }
+          }
+        }
+
+        // 3. Fallback no localStorage se vazio no Supabase
+        if (Object.keys(progressoMap).length === 0) {
+          const progressoSalvo = safeGetItem(`progresso_${cursoId}_${alunoId}`);
+          if (progressoSalvo) {
+            progressoMap = JSON.parse(progressoSalvo);
+          }
+        }
+
+        setProgresso(progressoMap);
         
         // Selecionar primeiro módulo e primeira aula
         if (cursoEncontrado.modulos && cursoEncontrado.modulos.length > 0) {
@@ -84,10 +135,55 @@ export default function AssistirCurso() {
     return url;
   };
 
-  const marcarAulaConcluida = (aulaId) => {
-    const novoProgresso = { ...progresso, [aulaId]: true };
+  const marcarAulaConcluida = async (aulaId) => {
+    if (!aulaId) return;
+
+    const jaConcluido = Boolean(progresso[aulaId]);
+    const novoStatus = !jaConcluido;
+    const novoProgresso = { ...progresso, [aulaId]: novoStatus };
     setProgresso(novoProgresso);
+
+    // Backup local
     safeSetItem(`progresso_${cursoId}_${usuario?.id}`, JSON.stringify(novoProgresso));
+
+    // Gravar no Supabase public.progresso_aulas
+    if (matriculaId) {
+      try {
+        if (novoStatus) {
+          await supabase
+            .from('progresso_aulas')
+            .upsert(
+              { matricula_id: matriculaId, aula_id: aulaId, concluido_em: new Date().toISOString() },
+              { onConflict: 'matricula_id,aula_id' }
+            );
+        } else {
+          await supabase
+            .from('progresso_aulas')
+            .delete()
+            .eq('matricula_id', matriculaId)
+            .eq('aula_id', aulaId);
+        }
+
+        // Recalcular e atualizar percentual na matrícula
+        if (curso && curso.modulos) {
+          let total = 0;
+          let concluidas = 0;
+          curso.modulos.forEach(m => {
+            (m.aulas || []).forEach(a => {
+              total++;
+              if (novoProgresso[a.id]) concluidas++;
+            });
+          });
+          const pct = total > 0 ? Math.round((concluidas / total) * 100) : 0;
+          await supabase
+            .from('matriculas')
+            .update({ progresso_percentual: pct })
+            .eq('id', matriculaId);
+        }
+      } catch (err) {
+        console.error('Erro ao atualizar progresso no Supabase:', err);
+      }
+    }
   };
 
   const selecionarAula = (modulo, aula) => {
