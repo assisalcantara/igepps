@@ -120,9 +120,6 @@ export default function ProfessorDashboard() {
           <div className="mb-8">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-2xl font-bold text-gray-800">Meus Cursos</h3>
-              <Link href="/professor/cursos" className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
-                + Novo Curso
-              </Link>
             </div>
 
             {carregando ? (
