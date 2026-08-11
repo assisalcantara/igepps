@@ -1,47 +1,81 @@
 [
   {
     "id": 1763172911514,
-    "titulo": "Planejamento da Aposentadoria e Vida Pós-Carreira",
-    "descricao": "<div>➢ Transição psicossocial para a aposentadoria;&nbsp;</div><div>➢ Reorganização da identidade profissional;&nbsp;</div><div>➢ Propósito e projetos de vida na maturidade.</div>",
+    "titulo": "SAÚDE MENTAL E EMOCIONAL NA APOSENTADORIA",
+    "descricao": "<div>➢&nbsp;Compreendendo a transição para a aposentadoria;&nbsp;</div><div>➢&nbsp;Identidade, emoções e novos papéis;&nbsp;</div><div>➢&nbsp;Propósito e construção de uma nova etapa;</div>",
     "categoria": "Psicossocial",
-    "cargaHoraria": "30",
-    "thumbnail": "/uploads/thumbnails/thumb_1777291685643.png",
+    "cargaHoraria": "15",
+    "thumbnail": "/uploads/thumbnails/thumb_1786409743341.png",
     "ativo": true,
     "dataCriacao": "2025-11-15T02:15:11.514Z",
     "modulos": [
       {
         "id": 1763172962807,
         "titulo": "Módulo 01",
-        "descricao": "Transição psicossocial para a aposentadoria",
+        "descricao": "Compreendendo a Saúde Mental na Aposentadoria",
         "ordem": 1,
         "aulas": [
           {
             "id": 1763173065423,
-            "titulo": "Apresentação",
-            "descricao": "Apresentação do Módulo com o professor.",
-            "videoUrl": "https://youtu.be/JBw-mdLSg38?list=RDMMJBw-mdLSg38",
+            "titulo": "Aspectos psicológicos da transição e adaptação à aposentadoria",
+            "descricao": "Nesta aula, vamos compreender os aspectos psicológicos envolvidos na transição para a aposentadoria, refletindo sobre as mudanças que esse momento pode trazer para a rotina, os relacionamentos, a identidade e a forma como percebemos a nós mesmos.\n\nA proposta é reconhecer que a aposentadoria não representa apenas o encerramento de uma etapa profissional, mas uma nova fase da vida, que pode envolver desafios, adaptações e também novas possibilidades de desenvolvimento, propósito e realização.",
+            "videoUrl": "https://www.youtube.com/watch?v=BdIeiFW2lWM",
             "duracao": "6",
             "ordem": 1,
-            "materiais": [],
+            "materiais": [
+              {
+                "id": 1786413313221,
+                "titulo": "Material de Apoio - Aula 01",
+                "url": "/uploads/materiais/1786413278476-Material_de_Apoio_EDEP_Aula_01.pdf"
+              }
+            ],
             "questoes": []
           }
         ]
-      },
-      {
-        "id": 1763172982180,
-        "titulo": "Módulo 02",
-        "descricao": "Reorganização da identidade profissional",
-        "ordem": 2,
-        "aulas": []
-      },
-      {
-        "id": 1763172999264,
-        "titulo": "Módulo 03",
-        "descricao": "Propósito e projetos de vida na maturidade",
-        "ordem": 3,
-        "aulas": []
       }
     ],
-    "videoApresentacao": ""
+    "avaliacao": {
+      "id": 2001,
+      "titulo": "Avaliação Final de Conhecimentos Previdenciários",
+      "descricao": "Avaliação oficial de fixação dos conceitos de transição para a aposentadoria e planejamento pós-carreira.",
+      "notaMinima": 70,
+      "duracaoMinutos": 30,
+      "questoes": [
+        {
+          "id": 1,
+          "enunciado": "Qual é o objetivo principal do planejamento da transição psicossocial para a aposentadoria?",
+          "opcoes": [
+            "Aumentar a carga horária de trabalho nos últimos anos de carreira.",
+            "Promover a reorganização da identidade pessoal e o projeto de vida na maturidade.",
+            "Cancelar os benefícios previdenciários do servidor público.",
+            "Reduzir o engajamento com atividades sociais e familiares."
+          ],
+          "respostaCorreta": 1
+        },
+        {
+          "id": 2,
+          "enunciado": "No contexto da gestão previdenciária, o que caracteriza a reorganização da identidade profissional?",
+          "opcoes": [
+            "Desconectar-se totalmente de qualquer atividade produtiva ou social.",
+            "Ressignificar competências e construir novos papéis sociais e projetos pessoais.",
+            "Manter exatamente a mesma rotina de trabalho presencial de forma informal.",
+            "Ignorar o impacto financeiro da transição de carreira."
+          ],
+          "respostaCorreta": 1
+        },
+        {
+          "id": 3,
+          "enunciado": "Qual aspecto é fundamental na preparação para a vida pós-carreira no regime previdenciário?",
+          "opcoes": [
+            "Planejamento de saúde, equilíbrio financeiro e ocupação com propósito.",
+            "Exclusão total do convívio comunitário.",
+            "Adiar indefinidamente o pedido de concessão do benefício.",
+            "Depender exclusivamente de terceiros para a tomada de decisões."
+          ],
+          "respostaCorreta": 0
+        }
+      ]
+    },
+    "videoApresentacao": "https://www.youtube.com/watch?v=SJcVzZLLb1M"
   }
 ]

@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { useRouter } from "next/router";
 import { useState } from "react";
 
@@ -53,17 +53,15 @@ export default function AdminSidebar() {
       <div className="p-6 border-b border-slate-700 flex items-center justify-between">
         {!isCollapsed ? (
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-xl flex items-center justify-center shadow-lg">
-              <span className="text-2xl">🎓</span>
-            </div>
+            <img src="/images/igepps-logo2.png" alt="EDEP" className="h-8 w-auto" />
             <div>
-              <h2 className="text-white font-bold text-sm">IGEPPS Academy</h2>
+              <h2 className="text-white font-bold text-sm">EDEP</h2>
               <p className="text-gray-400 text-xs">Painel Admin</p>
             </div>
           </div>
         ) : (
-          <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-xl flex items-center justify-center shadow-lg mx-auto">
-            <span className="text-2xl">🎓</span>
+          <div className="flex items-center justify-center mx-auto">
+            <img src="/images/igepps-logo2.png" alt="EDEP" className="h-7 w-auto" />
           </div>
         )}
         <button

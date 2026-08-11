@@ -61,7 +61,7 @@ export default function handler(req, res) {
       case 'PUT': {
         const { id, action, data } = req.body;
         const cursos = lerCursos();
-        const cursoIndex = cursos.findIndex(c => c.id === id);
+        const cursoIndex = cursos.findIndex(c => String(c.id) === String(id));
         
         if (cursoIndex === -1) {
           return res.status(404).json({ error: 'Curso não encontrado' });
@@ -93,18 +93,18 @@ export default function handler(req, res) {
             break;
 
           case 'updateModulo':
-            const moduloIndex = cursos[cursoIndex].modulos.findIndex(m => m.id === data.moduloId);
+            const moduloIndex = cursos[cursoIndex].modulos.findIndex(m => String(m.id) === String(data.moduloId));
             if (moduloIndex !== -1) {
               cursos[cursoIndex].modulos[moduloIndex] = { ...cursos[cursoIndex].modulos[moduloIndex], ...data.updates };
             }
             break;
 
           case 'deleteModulo':
-            cursos[cursoIndex].modulos = cursos[cursoIndex].modulos.filter(m => m.id !== data.moduloId);
+            cursos[cursoIndex].modulos = cursos[cursoIndex].modulos.filter(m => String(m.id) !== String(data.moduloId));
             break;
 
           case 'addAula':
-            const modulo = cursos[cursoIndex].modulos.find(m => m.id === data.moduloId);
+            const modulo = cursos[cursoIndex].modulos.find(m => String(m.id) === String(data.moduloId));
             if (modulo) {
               const novaAula = {
                 id: Date.now(),
@@ -121,9 +121,9 @@ export default function handler(req, res) {
             break;
 
           case 'updateAula':
-            const mod = cursos[cursoIndex].modulos.find(m => m.id === data.moduloId);
+            const mod = cursos[cursoIndex].modulos.find(m => String(m.id) === String(data.moduloId));
             if (mod) {
-              const aulaIndex = mod.aulas.findIndex(a => a.id === data.aulaId);
+              const aulaIndex = mod.aulas.findIndex(a => String(a.id) === String(data.aulaId));
               if (aulaIndex !== -1) {
                 mod.aulas[aulaIndex] = {
                   ...mod.aulas[aulaIndex],

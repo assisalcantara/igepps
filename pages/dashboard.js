@@ -454,11 +454,56 @@ export default function AlunoDashboard() {
                         </div>
                       </div>
 
-                      <Link href={`/assistir/${curso.id}`}>
-                        <button className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition">
-                          Acessar Curso
+                      <div className="flex flex-col gap-2">
+                        <div className="flex gap-2">
+                          <Link href={`/assistir/${curso.id}`} className="flex-1">
+                            <button className="w-full bg-blue-900 text-white py-2 rounded hover:bg-blue-800 transition text-sm font-semibold">
+                              Acessar Curso
+                            </button>
+                          </Link>
+                          <Link href={`/avaliacao/${curso.id}`}>
+                            <button className="bg-yellow-400 text-blue-900 font-bold px-3 py-2 rounded hover:bg-yellow-500 transition text-sm flex items-center gap-1" title="Avaliação Online">
+                              📝 Prova
+                            </button>
+                          </Link>
+                        </div>
+
+                        {/* Botão de Certificado (Disponível quando concluído + prova aprovada) */}
+                        <button
+                          onClick={async () => {
+                            const resAval = safeGetItem(`resultado_avaliacao_${curso.id}_${usuario?.id}`);
+                            const avalObj = resAval ? JSON.parse(resAval) : null;
+
+                            if (!avalObj || !avalObj.aprovado) {
+                              alert("Para emitir o certificado, é necessário realizar a Prova do Curso e obter aprovação (Nota mínima 70%).");
+                              return;
+                            }
+
+                            try {
+                              const resCert = await fetch('/api/certificados', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  alunoId: usuario.id,
+                                  alunoNome: usuario.nomeCompleto || usuario.nome,
+                                  cursoId: curso.id,
+                                  cursoTitulo: curso.titulo,
+                                  cargaHoraria: curso.cargaHoraria || "30"
+                                })
+                              });
+                              const certData = await resCert.json();
+                              if (certData && certData.codigoValidacao) {
+                                router.push(`/certificado/${certData.codigoValidacao}`);
+                              }
+                            } catch (err) {
+                              console.error("Erro ao emitir certificado:", err);
+                            }
+                          }}
+                          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded transition text-sm flex items-center justify-center gap-1.5 shadow"
+                        >
+                          📜 Emitir Certificado Digital
                         </button>
-                      </Link>
+                      </div>
                     </div>
                   ))}
                 </div>

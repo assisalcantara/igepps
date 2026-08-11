@@ -1,0 +1,26 @@
+[
+  {
+    "id": 1,
+    "nomeCompleto": "Admin Sistema",
+    "email": "admin@igepps.com",
+    "senha": "admin123",
+    "tipo": "admin",
+    "status": "ativo"
+  },
+  {
+    "id": 2,
+    "nomeCompleto": "João Silva Santos",
+    "email": "joao@igepps.com",
+    "senha": "prof123",
+    "tipo": "professor",
+    "status": "ativo"
+  },
+  {
+    "id": 3,
+    "nomeCompleto": "Maria Santos Oliveira",
+    "email": "maria@igepps.com",
+    "senha": "aluno123",
+    "tipo": "aluno",
+    "status": "ativo"
+  }
+]

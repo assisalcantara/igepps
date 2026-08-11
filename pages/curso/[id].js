@@ -74,7 +74,11 @@ export default function CursoDetalhes() {
   };
 
   const calcularDuracaoTotal = () => {
-    if (!curso || !curso.modulos) return '0h';
+    if (curso && curso.cargaHoraria) {
+      return `${curso.cargaHoraria}h`;
+    }
+    
+    if (!curso || !curso.modulos) return '15h';
     
     let totalMinutos = 0;
     curso.modulos.forEach(modulo => {
@@ -89,6 +93,7 @@ export default function CursoDetalhes() {
     
     const horas = Math.floor(totalMinutos / 60);
     const minutos = totalMinutos % 60;
+    if (horas === 0) return '15h';
     return minutos > 0 ? `${horas}h ${minutos}min` : `${horas}h`;
   };
 
@@ -170,12 +175,12 @@ export default function CursoDetalhes() {
       </Head>
 
       {/* Header */}
-      <header className="bg-blue-900 text-white py-4 md:py-6 shadow-md">
+      <header className="bg-blue-900 text-white py-4 md:py-6 shadow-md relative z-50">
         <div className="container mx-auto px-4">
           <div className="flex justify-between items-center">
             <Link href="/" className="flex items-center gap-2 md:gap-3 hover:opacity-80 transition">
-              <img src="/images/igepps-logo.png" alt="IGEPPS" className="h-8 md:h-12 w-auto" />
-              <span className="text-lg md:text-2xl font-bold tracking-wide">IGEPPS Academy</span>
+              <img src="/images/igepps-logo2.png" alt="EDEP" className="h-10 md:h-14 w-auto" />
+              <span className="text-lg md:text-2xl font-bold tracking-wide">Escola Digital de Educação Previdenciária</span>
             </Link>
             
             {/* Menu Desktop */}
@@ -185,6 +190,7 @@ export default function CursoDetalhes() {
               <Link href="/#sobre" className="hover:underline">Sobre</Link>
               <Link href="/#contato" className="hover:underline">Contato</Link>
               <Link href="/login" className="bg-yellow-400 hover:bg-yellow-500 text-blue-900 font-semibold px-4 py-2 rounded shadow transition">Área do Aluno</Link>
+              <Link href="/admin/dashboard" className="bg-white hover:bg-yellow-400 text-blue-900 font-semibold px-3 py-2 rounded shadow transition text-sm">Admin</Link>
             </nav>
 
             {/* Botões Mobile */}
@@ -560,23 +566,21 @@ export default function CursoDetalhes() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-white py-8">
-        <div className="max-w-7xl mx-auto px-4 text-center">
-          <div className="mb-4">
-            <img src="/images/igepps-logo.png" alt="IGEPPS" className="h-12 mx-auto mb-3" />
-            <p className="text-gray-300 text-sm max-w-2xl mx-auto">
-              IGEPPS - Instituto de Gestão de Políticas Públicas e Sociais
-            </p>
+      <footer className="bg-gray-950 text-white py-8">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-4">
+          <div className="flex items-center gap-3 text-center md:text-left">
+            <img src="/images/logobranca.png" alt="EDEP" className="h-10 md:h-12 w-auto object-contain" />
+            <span className="text-xs md:text-sm font-semibold text-white">Escola Digital de Educação Previdenciária / IGEPPS</span>
           </div>
-          <div className="border-t border-gray-700 pt-6 mt-6">
-            <div className="flex flex-col md:flex-row justify-center items-center gap-4 text-sm text-gray-400">
-              <Link href="/termos-de-uso" className="hover:text-white transition">Termos de Uso</Link>
-              <span className="hidden md:inline">|</span>
-              <Link href="/politica-de-privacidade" className="hover:text-white transition">Política de Privacidade</Link>
-              <span className="hidden md:inline">|</span>
-              <span>© {new Date().getFullYear()} IGEPPS. Todos os direitos reservados.</span>
-            </div>
+
+          <div className="flex items-center gap-4 text-xs md:text-sm text-gray-400">
+            <Link href="/termos-de-uso" className="hover:text-yellow-400 transition">Termos de Uso</Link>
+            <span>|</span>
+            <Link href="/politica-de-privacidade" className="hover:text-yellow-400 transition">Política de Privacidade</Link>
           </div>
+        </div>
+        <div className="text-center text-[11px] text-gray-500 mt-4 border-t border-gray-800 pt-3">
+          &copy; {new Date().getFullYear()} EDEP - Escola Digital de Educação Previdenciária. Todos os direitos reservados.
         </div>
       </footer>
     </>

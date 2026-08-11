@@ -290,8 +290,13 @@ export default function AssistirCurso() {
                       : 'border-transparent text-gray-400 hover:text-white'
                   }`}
                 >
-                  ⭐ Avaliação
+                  ⭐ Avaliar Aula
                 </button>
+                <Link href={`/avaliacao/${cursoId}`}>
+                  <button className="pb-3 border-b-2 border-transparent font-semibold text-yellow-400 hover:text-yellow-300 transition flex items-center gap-1.5">
+                    📝 Avaliação do Curso
+                  </button>
+                </Link>
               </div>
             </div>
 

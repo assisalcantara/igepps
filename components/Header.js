@@ -4,9 +4,12 @@ const Header = () => {
   return (
     <header className="bg-white shadow-md">
       <div className="container mx-auto px-6 py-4 flex justify-between items-center">
-        <div className="text-2xl font-bold text-brand-blue font-heading">
-          <Link href="/">
-            IGEPPS Academy
+        <div className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-3">
+            <img src="/images/igepps-logo2.png" alt="EDEP" className="h-10 w-auto" />
+            <span className="text-xl font-bold text-brand-blue font-heading">
+              EDEP
+            </span>
           </Link>
         </div>
         <nav>

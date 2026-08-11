@@ -69,9 +69,34 @@ export default function handler(req, res) {
         console.error('Erro ao salvar dados do slide:', error);
         res.status(500).json({ error: 'Erro ao salvar dados do slide.' });
     }
-  }
-  else {
-    res.setHeader('Allow', ['GET', 'POST']);
+  } else if (req.method === 'DELETE') {
+    try {
+      const { fileName } = req.body || req.query;
+
+      if (!fileName) {
+        return res.status(400).json({ error: 'Nome do arquivo é obrigatório.' });
+      }
+
+      // Remover arquivo de imagem de public/images/slider
+      const filePath = path.join(slidesDirectory, fileName);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+
+      // Atualizar slider.json removendo a entrada
+      if (fs.existsSync(sliderDataPath)) {
+        const sliderInfo = getSliderData();
+        const updatedInfo = sliderInfo.filter(s => s.fileName !== fileName);
+        fs.writeFileSync(sliderDataPath, JSON.stringify(updatedInfo, null, 2));
+      }
+
+      return res.status(200).json({ success: true, message: 'Slide deletado com sucesso.' });
+    } catch (error) {
+      console.error('Erro ao deletar slide:', error);
+      return res.status(500).json({ error: 'Erro ao deletar o slide.' });
+    }
+  } else {
+    res.setHeader('Allow', ['GET', 'POST', 'DELETE']);
     res.status(405).end(`Método ${req.method} não permitido.`);
   }
 }

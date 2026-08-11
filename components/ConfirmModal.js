@@ -12,7 +12,7 @@ export default function ConfirmModal({ isOpen, onClose, onConfirm, title, messag
         <div className={`p-6 ${isDelete ? 'bg-gradient-to-r from-red-500 to-red-600' : isSuccess ? 'bg-gradient-to-r from-green-500 to-green-600' : isError ? 'bg-gradient-to-r from-orange-500 to-orange-600' : 'bg-gradient-to-r from-yellow-400 to-orange-500'}`}>
           <div className="flex items-center justify-center mb-4">
             <div className="flex items-center justify-center" style={{ width: '300px', height: '80px' }}>
-              <img src="/images/igepps-logo.png" alt="IGEPPS" className="w-full h-full object-contain" />
+              <img src="/images/igepps-logo2.png" alt="EDEP" className="w-full h-full object-contain" />
             </div>
           </div>
           <h3 className="text-xl font-bold text-white text-center">

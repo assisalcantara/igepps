@@ -102,35 +102,56 @@ export default function AdminCursos() {
   const handleSubmitModulo = async (e) => {
     e.preventDefault();
     try {
+      const action = modoEdicao ? 'updateModulo' : 'addModulo';
+      const targetModuloId = formData.id || (moduloSelecionado ? moduloSelecionado.id : null);
+      const body = modoEdicao
+        ? {
+            id: cursoSelecionado.id,
+            action: action,
+            data: {
+              moduloId: targetModuloId,
+              updates: {
+                titulo: formData.titulo,
+                descricao: formData.descricao
+              }
+            }
+          }
+        : {
+            id: cursoSelecionado.id,
+            action: action,
+            data: formData
+          };
+
       const response = await fetch('/api/cursos', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: cursoSelecionado.id,
-          action: 'addModulo',
-          data: formData
-        })
+        body: JSON.stringify(body)
       });
       if (response.ok) {
         const cursoAtualizado = await response.json();
         setCursoSelecionado(cursoAtualizado);
+        if (moduloSelecionado) {
+          const modAtualizado = cursoAtualizado.modulos.find(m => String(m.id) === String(targetModuloId));
+          if (modAtualizado) setModuloSelecionado(modAtualizado);
+        }
         await carregarCursos();
         setMostrarForm(false);
         setFormData({});
+        setModoEdicao(false);
         setModalState({
           isOpen: true,
           title: 'Sucesso!',
-          message: 'Módulo adicionado com sucesso!',
+          message: modoEdicao ? 'Módulo atualizado com sucesso!' : 'Módulo adicionado com sucesso!',
           type: 'success',
           onConfirm: null
         });
       }
     } catch (error) {
-      console.error('Erro ao adicionar módulo:', error);
+      console.error('Erro ao salvar módulo:', error);
       setModalState({
         isOpen: true,
         title: 'Erro',
-        message: 'Erro ao adicionar módulo. Tente novamente.',
+        message: 'Erro ao salvar módulo. Tente novamente.',
         type: 'error',
         onConfirm: null
       });
@@ -147,7 +168,7 @@ export default function AdminCursos() {
             action: action,
             data: {
               moduloId: moduloSelecionado.id,
-              aulaId: aulaSelecionada.id,
+              aulaId: formData.id || (aulaSelecionada ? aulaSelecionada.id : null),
               ...formData
             }
           }
@@ -168,11 +189,12 @@ export default function AdminCursos() {
       if (response.ok) {
         const cursoAtualizado = await response.json();
         setCursoSelecionado(cursoAtualizado);
-        const moduloAtualizado = cursoAtualizado.modulos.find(m => m.id === moduloSelecionado.id);
+        const moduloAtualizado = cursoAtualizado.modulos.find(m => String(m.id) === String(moduloSelecionado.id));
         setModuloSelecionado(moduloAtualizado);
         if (modoEdicao) {
-          const aulaAtualizada = moduloAtualizado.aulas.find(a => a.id === aulaSelecionada.id);
-          setAulaSelecionada(aulaAtualizada);
+          const targetAulaId = formData.id || (aulaSelecionada ? aulaSelecionada.id : null);
+          const aulaAtualizada = moduloAtualizado?.aulas?.find(a => String(a.id) === String(targetAulaId));
+          if (aulaAtualizada) setAulaSelecionada(aulaAtualizada);
         }
         await carregarCursos();
         setMostrarForm(false);
@@ -326,7 +348,7 @@ export default function AdminCursos() {
             moduloId: moduloSelecionado.id,
             aulaId: aulaSelecionada.id,
             titulo: formData.titulo,
-            tipo: formData.tipo,
+            tipo: formData.tipo || 'pdf',
             url: formData.url
           }
         })
@@ -334,10 +356,10 @@ export default function AdminCursos() {
       if (response.ok) {
         const cursoAtualizado = await response.json();
         setCursoSelecionado(cursoAtualizado);
-        const moduloAtualizado = cursoAtualizado.modulos.find(m => m.id === moduloSelecionado.id);
-        const aulaAtualizada = moduloAtualizado.aulas.find(a => a.id === aulaSelecionada.id);
-        setModuloSelecionado(moduloAtualizado);
-        setAulaSelecionada(aulaAtualizada);
+        const moduloAtualizado = cursoAtualizado.modulos.find(m => String(m.id) === String(moduloSelecionado.id));
+        const aulaAtualizada = moduloAtualizado?.aulas?.find(a => String(a.id) === String(aulaSelecionada.id));
+        if (moduloAtualizado) setModuloSelecionado(moduloAtualizado);
+        if (aulaAtualizada) setAulaSelecionada(aulaAtualizada);
         await carregarCursos();
         setMostrarForm(false);
         setFormData({});
@@ -1168,7 +1190,10 @@ export default function AdminCursos() {
 
         <div className="mb-6">
           <h2 className="text-2xl font-bold">{cursoSelecionado.titulo}</h2>
-          <p className="text-gray-600">{cursoSelecionado.descricao}</p>
+          <div 
+            className="text-gray-600 prose prose-sm max-w-none mt-1" 
+            dangerouslySetInnerHTML={{ __html: cursoSelecionado.descricao || '' }} 
+          />
         </div>
 
         <div className="flex justify-between items-center mb-6">
@@ -1187,10 +1212,16 @@ export default function AdminCursos() {
               <div className="flex justify-between items-start">
                 <div className="flex-1">
                   <h4 className="text-lg font-bold">Módulo {index + 1}: {modulo.titulo}</h4>
-                  <p className="text-sm text-gray-600 mb-2">{modulo.descricao}</p>
+                  <div className="text-sm text-gray-600 mb-2" dangerouslySetInnerHTML={{ __html: modulo.descricao || '' }} />
                   <p className="text-xs text-gray-500">Aulas: {modulo.aulas?.length || 0}</p>
                 </div>
                 <div className="flex gap-2">
+                  <button
+                    onClick={() => abrirFormulario('modulo', modulo)}
+                    className="bg-yellow-500 text-white px-3 py-1 rounded text-sm hover:bg-yellow-600 font-semibold"
+                  >
+                    Editar
+                  </button>
                   <button
                     onClick={() => {
                       setModuloSelecionado(modulo);
@@ -1246,9 +1277,17 @@ export default function AdminCursos() {
           ← Voltar para Módulos
         </button>
 
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold">{moduloSelecionado.titulo}</h2>
-          <p className="text-gray-600">{moduloSelecionado.descricao}</p>
+        <div className="mb-6 flex justify-between items-start">
+          <div>
+            <h2 className="text-2xl font-bold">{moduloSelecionado.titulo}</h2>
+            <div className="text-gray-600 mt-1" dangerouslySetInnerHTML={{ __html: moduloSelecionado.descricao || '' }} />
+          </div>
+          <button
+            onClick={() => abrirFormulario('modulo', moduloSelecionado)}
+            className="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600 text-sm font-semibold whitespace-nowrap ml-4"
+          >
+            Editar Módulo
+          </button>
         </div>
 
         <div className="flex justify-between items-center mb-6">
@@ -1300,6 +1339,7 @@ export default function AdminCursos() {
           </div>
         )}
 
+        {mostrarForm && tipoForm === 'modulo' && renderFormModulo()}
         {mostrarForm && tipoForm === 'aula' && renderFormAula()}
         
         <ConfirmModal
@@ -1338,17 +1378,7 @@ export default function AdminCursos() {
               </a>
             </div>
             <button
-              onClick={() => {
-                setFormData({
-                  titulo: aulaSelecionada.titulo,
-                  descricao: aulaSelecionada.descricao,
-                  videoUrl: aulaSelecionada.videoUrl,
-                  duracao: aulaSelecionada.duracao
-                });
-                setModoEdicao(true);
-                setTipoForm('aula');
-                setMostrarForm(true);
-              }}
+              onClick={() => abrirFormulario('aula', aulaSelecionada)}
               className="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600 text-sm font-semibold whitespace-nowrap ml-4"
             >
               Editar Aula
@@ -1425,7 +1455,7 @@ export default function AdminCursos() {
             {aulaSelecionada.materiais?.map(material => (
               <div key={material.id} className="border rounded-lg p-4 bg-white shadow">
                 <p className="font-medium mb-2">{material.titulo}</p>
-                <p className="text-sm text-gray-500 mb-3">Tipo: {material.tipo.toUpperCase()}</p>
+                <p className="text-sm text-gray-500 mb-3">Tipo: {(material.tipo || 'pdf').toUpperCase()}</p>
                 <div className="flex gap-2">
                   <a
                     href={material.url}
@@ -1453,6 +1483,7 @@ export default function AdminCursos() {
           )}
         </div>
 
+        {mostrarForm && tipoForm === 'aula' && renderFormAula()}
         {mostrarForm && tipoForm === 'questao' && renderFormQuestao()}
         {mostrarForm && tipoForm === 'material' && renderFormMaterial()}
         

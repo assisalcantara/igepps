@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import ConfirmModal from './ConfirmModal';
 
 // Componente para o formulário de edição de um slide
 function EditForm({ slide, onSave, onCancel }) {
@@ -56,6 +57,14 @@ export default function AdminSlider() {
   const [error, setError] = useState('');
   const [feedback, setFeedback] = useState('');
   const [editingSlide, setEditingSlide] = useState(null); // Para controlar qual slide está sendo editado
+
+  const [modalState, setModalState] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'delete',
+    onConfirm: null
+  });
 
   const fetchSlides = async () => {
     try {
@@ -140,10 +149,35 @@ export default function AdminSlider() {
     }
   };
 
-  // A função de deletar seria implementada aqui no futuro
-  const handleDelete = async (slideName) => {
-    alert(`Funcionalidade de deletar "${slideName}" a ser implementada.`);
-    // Lógica de chamada para a API de delete viria aqui
+  const executarExclusao = async (slideName) => {
+    try {
+      setModalState({ ...modalState, isOpen: false });
+      const response = await fetch('/api/slider', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileName: slideName }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Falha ao excluir o slide.');
+      }
+
+      setFeedback(`Slide "${slideName}" excluído com sucesso!`);
+      fetchSlides();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const handleDelete = (slideName) => {
+    setModalState({
+      isOpen: true,
+      title: 'Excluir Slide',
+      message: `Tem certeza de que deseja excluir a imagem do slide "${slideName}"? Esta ação não poderá ser desfeita.`,
+      type: 'delete',
+      onConfirm: () => executarExclusao(slideName)
+    });
   };
 
   return (
@@ -217,6 +251,15 @@ export default function AdminSlider() {
           </div>
         ))}
       </div>
+
+      <ConfirmModal
+        isOpen={modalState.isOpen}
+        onClose={() => setModalState({ ...modalState, isOpen: false })}
+        onConfirm={modalState.onConfirm}
+        title={modalState.title}
+        message={modalState.message}
+        type={modalState.type}
+      />
     </div>
   );
 }

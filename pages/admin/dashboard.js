@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import AdminHeader from "@/components/AdminHeader";
@@ -104,7 +104,7 @@ export default function AdminDashboard() {
           <main className="p-8 bg-gradient-to-b from-gray-100 to-gray-50">
             <div className="mb-8">
               <h2 className="text-3xl font-bold text-gray-900 mb-1">Dashboard</h2>
-              <p className="text-sm text-gray-500">Visão geral do sistema IGEPPS Academy</p>
+              <p className="text-sm text-gray-500">Visão geral do sistema EDEP (Escola Digital de Educação Previdenciária)</p>
             </div>
 
           {carregando ? (
