@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
-import { safeGetItem, safeSetItem } from '../lib/storage';
+import { safeGetItem, safeSetItem } from '../../lib/storage';
 
 export default function AvaliacaoCurso() {
   const router = useRouter();
