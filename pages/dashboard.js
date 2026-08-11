@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import Forum from "@/components/Forum";
 import { safeGetItem, safeSetItem, safeRemoveItem } from '../lib/storage';
+import { supabase } from '../lib/supabase';
 
 export default function AlunoDashboard() {
   const router = useRouter();
@@ -37,27 +38,64 @@ export default function AlunoDashboard() {
 
     setUsuario(u);
     setPerfilForm(u);
-    carregarCursos();
+    carregarCursos(u.id);
     carregarMeusDocumentos();
   }, []);
 
-  const carregarCursos = async () => {
+  const carregarCursos = async (alunoIdParam) => {
     setCarregando(true);
     try {
+      const alunoId = alunoIdParam || usuario?.id;
+
+      // 1. Tentar buscar matrículas reais do aluno no Supabase
+      if (alunoId) {
+        const { data: matriculasDb } = await supabase
+          .from('matriculas')
+          .select(`
+            id, progresso_percentual, status, data_matricula,
+            cursos (
+              id, titulo, descricao, thumbnail_url, ativo, carga_horaria,
+              modulos ( id, titulo, ordem, aulas ( id, titulo, ordem, video_url ) )
+            )
+          `)
+          .eq('aluno_id', alunoId);
+
+        if (matriculasDb && matriculasDb.length > 0) {
+          const cursosFormatados = matriculasDb.map(m => {
+            const curso = m.cursos;
+            const primeiraAula = curso?.modulos?.[0]?.aulas?.[0]?.titulo || "Aula 1";
+            return {
+              id: curso?.id || m.id,
+              titulo: curso?.titulo || "Curso EDEP",
+              descricao: curso?.descricao || "",
+              thumbnail: curso?.thumbnail_url || "/uploads/thumbnails/thumb_1786409743341.png",
+              progresso: m.progresso_percentual || 0,
+              ultimaAula: primeiraAula,
+              dataInscricao: m.data_matricula || new Date().toISOString(),
+              modulos: curso?.modulos || []
+            };
+          });
+
+          setCursos(cursosFormatados);
+          setCarregando(false);
+          return;
+        }
+      }
+
+      // 2. Fallback de API se não houver dados no banco
       const response = await fetch('/api/cursos');
       const todosCursos = await response.json();
       
-      // Simular cursos inscritos
-      const cursosInscritos = todosCursos.filter(c => c.ativo).slice(0, 3).map((curso, idx) => ({
+      const cursosInscritos = todosCursos.filter(c => c.ativo).slice(0, 1).map((curso) => ({
         ...curso,
-        progresso: [65, 40, 0][idx] || 0,
-        ultimaAula: `Aula ${Math.floor((curso.modulos?.[0]?.aulas?.length || 10) * ([65, 40, 0][idx] / 100))}`,
-        dataInscricao: new Date(Date.now() - idx * 7 * 24 * 60 * 60 * 1000).toISOString()
+        progresso: 0,
+        ultimaAula: curso.modulos?.[0]?.aulas?.[0]?.titulo || "Aula 1",
+        dataInscricao: new Date().toISOString()
       }));
       
       setCursos(cursosInscritos);
     } catch (err) {
-      console.error("Erro ao carregar cursos:", err);
+      console.error("Erro ao carregar cursos do aluno:", err);
     }
     setCarregando(false);
   };
@@ -216,18 +254,24 @@ export default function AlunoDashboard() {
       )}
 
       {/* Sidebar */}
-      <aside className={`w-64 bg-gradient-to-b from-blue-800 via-blue-900 to-blue-950 text-white min-h-screen fixed shadow-xl z-50 transition-transform duration-300 ${menuAberto ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
-        <div className="p-6">
+      <aside className={`w-64 bg-gradient-to-b from-blue-950 via-blue-900 to-blue-800 text-white min-h-screen fixed shadow-xl z-50 transition-transform duration-300 ${menuAberto ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
+        <div className="p-6 border-b border-blue-800/60">
           <Link href="/">
-            <div className="flex items-center justify-center cursor-pointer hover:opacity-80 transition mb-3">
-              <img src="/images/igepps-logo.png" alt="IGEPPS" className="h-16 w-auto" />
+            <div className="flex flex-col items-center justify-center cursor-pointer hover:opacity-90 transition group">
+              <img src="/images/igepps-logo2.png" alt="EDEP" className="h-12 w-auto drop-shadow mb-2" />
+              <span className="text-white font-bold text-lg tracking-wide group-hover:text-yellow-400 transition">EDEP</span>
+              <span className="text-blue-200 text-[10px] text-center font-medium leading-tight px-2">Escola Digital de Educação Previdenciária</span>
             </div>
           </Link>
-          <p className="text-xs text-blue-200 mt-2 font-medium tracking-wide text-center">PORTAL DO ALUNO</p>
+          <div className="mt-3 pt-2 border-t border-blue-700/40 text-center">
+            <span className="bg-yellow-400/20 text-yellow-300 border border-yellow-400/30 text-[11px] font-bold px-3 py-0.5 rounded-full uppercase tracking-wider inline-block">
+              PORTAL DO ALUNO
+            </span>
+          </div>
           
           {/* Foto do Perfil */}
           <div className="mt-6 flex flex-col items-center">
-            <div className="w-24 h-24 rounded-full overflow-hidden bg-blue-700 border-4 border-yellow-400 flex items-center justify-center shadow-lg">
+            <div className="w-20 h-20 rounded-full overflow-hidden bg-blue-900 border-3 border-yellow-400 flex items-center justify-center shadow-lg">
               {usuario?.fotoPerfil ? (
                 <img src={usuario.fotoPerfil} alt="Perfil" className="w-full h-full object-cover" />
               ) : (
