@@ -257,9 +257,7 @@ export default function AlunoDashboard() {
         <div className="p-6 border-b border-blue-800/60">
           <Link href="/">
             <div className="flex flex-col items-center justify-center cursor-pointer hover:opacity-90 transition group">
-              <img src="/images/igepps-logo2.png" alt="EDEP" className="h-12 w-auto drop-shadow mb-2" />
-              <span className="text-white font-bold text-lg tracking-wide group-hover:text-yellow-400 transition">EDEP</span>
-              <span className="text-blue-200 text-[10px] text-center font-medium leading-tight px-2">Escola Digital de Educação Previdenciária</span>
+              <img src="/images/igepps-logo2.png" alt="EDEP" className="h-16 w-auto drop-shadow" />
             </div>
           </Link>
           <div className="mt-3 pt-2 border-t border-blue-700/40 text-center">
