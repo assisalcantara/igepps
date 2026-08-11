@@ -114,44 +114,63 @@ export default function ProfessorDashboard() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {cursos.map(curso => (
-                  <div key={curso.id} className="bg-white rounded-lg shadow-lg hover:shadow-xl transition overflow-hidden">
-                    <div className="h-32 bg-gradient-to-r from-blue-500 to-blue-700"></div>
-                    <div className="p-6">
-                      <h4 className="text-lg font-bold text-gray-800 mb-2">{curso.titulo}</h4>
-                      <p className="text-gray-600 text-sm mb-4 line-clamp-3">
-                        {curso.descricao
-                          ?.replace(/<br\s*\/?>/gi, '\n')
-                          .replace(/<\/p>\s*<p[^>]*>/gi, '\n')
-                          .replace(/<p[^>]*>/gi, '')
-                          .replace(/<\/p>/gi, '')
-                          .replace(/<div[^>]*>/gi, '')
-                          .replace(/<\/div>/gi, '\n')
-                          .replace(/<[^>]*>/g, '')
-                          .replace(/&nbsp;/g, ' ')
-                          .replace(/&amp;/g, '&')
-                          .replace(/&lt;/g, '<')
-                          .replace(/&gt;/g, '>')
-                          .replace(/&quot;/g, '"')
-                          .replace(/\n\s*\n/g, '\n')
-                          .trim() || 'Sem descrição.'}
-                      </p>
+                  <div key={curso.id} className="bg-white rounded-lg shadow-lg hover:shadow-xl transition overflow-hidden border border-gray-100 flex flex-col justify-between">
+                    <div>
+                      {/* Banner do Curso */}
+                      <div className="h-44 w-full overflow-hidden bg-gradient-to-r from-blue-600 to-blue-800 relative">
+                        {curso.thumbnail || curso.thumbnail_url ? (
+                          <img
+                            src={curso.thumbnail || curso.thumbnail_url}
+                            alt={curso.titulo}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-white/50 text-sm font-semibold">
+                            EDEP Cursos
+                          </div>
+                        )}
+                      </div>
 
-                      <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
-                        <div className="bg-blue-50 p-2 rounded">
-                          <p className="text-gray-600">Alunos</p>
-                          <p className="text-xl font-bold text-blue-600">{curso.alunos}</p>
+                      <div className="p-6">
+                        <h4 className="text-lg font-bold text-gray-900 mb-3 leading-snug">{curso.titulo}</h4>
+                        <div className="text-gray-600 text-sm mb-4 space-y-1 whitespace-pre-line leading-relaxed">
+                          {curso.descricao
+                            ?.replace(/<br\s*\/?>/gi, '\n')
+                            .replace(/<\/p>\s*<p[^>]*>/gi, '\n')
+                            .replace(/<p[^>]*>/gi, '')
+                            .replace(/<\/p>/gi, '')
+                            .replace(/<div[^>]*>/gi, '')
+                            .replace(/<\/div>/gi, '\n')
+                            .replace(/<[^>]*>/g, '')
+                            .replace(/&nbsp;/g, ' ')
+                            .replace(/&amp;/g, '&')
+                            .replace(/&lt;/g, '<')
+                            .replace(/&gt;/g, '>')
+                            .replace(/&quot;/g, '"')
+                            .replace(/;\s*/g, ';\n')
+                            .replace(/\n\s*\n/g, '\n')
+                            .trim() || 'Sem descrição.'}
                         </div>
-                        <div className="bg-purple-50 p-2 rounded">
-                          <p className="text-gray-600">Aulas</p>
-                          <p className="text-xl font-bold text-purple-600">{curso.aulas}</p>
+                      </div>
+                    </div>
+
+                    <div className="px-6 pb-6 pt-0">
+                      <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
+                        <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                          <p className="text-gray-600 text-xs font-semibold">Alunos</p>
+                          <p className="text-2xl font-bold text-blue-600 mt-0.5">{curso.alunos}</p>
+                        </div>
+                        <div className="bg-purple-50 p-3 rounded-lg border border-purple-100">
+                          <p className="text-gray-600 text-xs font-semibold">Aulas</p>
+                          <p className="text-2xl font-bold text-purple-600 mt-0.5">{curso.aulas}</p>
                         </div>
                       </div>
 
                       <div className="flex gap-2">
-                        <Link href={`/professor/cursos/${curso.id}`} className="flex-1 bg-blue-600 text-white text-center py-2 rounded hover:bg-blue-700 text-sm">
+                        <Link href={`/professor/cursos/${curso.id}`} className="flex-1 bg-blue-600 text-white text-center py-2.5 rounded-lg hover:bg-blue-700 font-semibold text-sm transition">
                           Editar
                         </Link>
-                        <button className="flex-1 bg-gray-300 text-gray-700 py-2 rounded hover:bg-gray-400 text-sm">
+                        <button className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg hover:bg-gray-300 font-semibold text-sm transition">
                           Visualizar
                         </button>
                       </div>
