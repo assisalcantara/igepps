@@ -20,16 +20,35 @@ export default function AdminHeader({ usuario }) {
             <p className="text-sm text-gray-500 -mt-1">Escola Digital de Educação Previdenciária — Painel Admin</p>
           </div>
         </div>
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-gray-600">{usuario?.nomeCompleto || usuario?.nome}</span>
-          <div className="flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-lg">
-            <span className="text-xs font-semibold text-blue-700">Admin</span>
+        <div className="flex items-center gap-4 pr-6">
+          {/* Avatar com as Iniciais + Nome do Usuário */}
+          <div className="flex items-center gap-3 bg-gray-50 border border-gray-200/80 px-3 py-1.5 rounded-full shadow-sm">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-900 via-blue-800 to-slate-900 text-yellow-400 font-bold text-xs flex items-center justify-center border border-yellow-400/40 shadow-inner">
+              {(usuario?.nomeCompleto || usuario?.nome || 'Admin').charAt(0).toUpperCase()}
+            </div>
+            <div className="flex flex-col">
+              <span className="text-sm font-semibold text-slate-800 leading-tight">
+                {usuario?.nomeCompleto || usuario?.nome || 'Admin Sistema'}
+              </span>
+            </div>
           </div>
+
+          {/* Badge de Perfil Admin */}
+          <div className="flex items-center gap-1.5 bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-950 font-bold text-xs px-3 py-1.5 rounded-full shadow-sm border border-yellow-300">
+            <span className="w-2 h-2 rounded-full bg-slate-950 animate-pulse"></span>
+            <span>Administrador</span>
+          </div>
+
+          {/* Botão Sair Estilizado com Ícone */}
           <button 
             onClick={handleLogout} 
-            className="text-sm text-gray-600 hover:text-gray-900 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+            className="flex items-center gap-2 text-xs font-semibold text-rose-600 hover:text-white bg-rose-50 hover:bg-rose-600 border border-rose-200/80 px-3.5 py-1.5 rounded-full transition-all duration-200 shadow-sm group"
+            title="Encerrar Sessão Administrativa"
           >
-            Sair
+            <svg className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            <span>Sair</span>
           </button>
         </div>
       </div>
