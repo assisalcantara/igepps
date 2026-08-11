@@ -1,64 +1,45 @@
 import fs from 'fs';
 import path from 'path';
+import { supabase } from '@/lib/supabase';
 
 const professoresPath = path.join(process.cwd(), 'data', 'professores.json');
 
-// Criar arquivo se não existir
-if (!fs.existsSync(professoresPath)) {
-  fs.writeFileSync(professoresPath, JSON.stringify([], null, 2));
-}
-
-export default function handler(req, res) {
+export default async function handler(req, res) {
   try {
-    let professores = JSON.parse(fs.readFileSync(professoresPath, 'utf8'));
-
     if (req.method === 'GET') {
-      return res.status(200).json(professores);
-    }
+      try {
+        const { data: profsDb, error: errDb } = await supabase
+          .from('usuarios')
+          .select(`
+            id, nome_completo, email, foto_url,
+            curso_professores ( curso_id )
+          `)
+          .eq('tipo', 'professor');
 
-    if (req.method === 'POST') {
-      const novoProfessor = {
-        id: Date.now(),
-        ...req.body,
-        dataCriacao: new Date().toISOString()
-      };
-
-      professores.push(novoProfessor);
-      fs.writeFileSync(professoresPath, JSON.stringify(professores, null, 2));
-      
-      return res.status(201).json(novoProfessor);
-    }
-
-    if (req.method === 'PUT') {
-      const { id } = req.query;
-      const professorIndex = professores.findIndex(p => p.id === parseInt(id));
-
-      if (professorIndex === -1) {
-        return res.status(404).json({ erro: 'Professor não encontrado' });
+        if (!errDb && profsDb) {
+          const professoresFormatados = profsDb.map(p => ({
+            id: p.id,
+            nome: p.nome_completo,
+            nomeCompleto: p.nome_completo,
+            email: p.email,
+            avatar: p.foto_url,
+            cursosResponsaveis: (p.curso_professores || []).map(cp => cp.curso_id)
+          }));
+          return res.status(200).json(professoresFormatados);
+        }
+      } catch (err) {
+        console.warn('Erro ao consultar professores no Supabase, usando fallback local:', err);
       }
 
-      professores[professorIndex] = {
-        ...professores[professorIndex],
-        ...req.body,
-        dataAtualizacao: new Date().toISOString()
-      };
-
-      fs.writeFileSync(professoresPath, JSON.stringify(professores, null, 2));
-      
-      return res.status(200).json(professores[professorIndex]);
-    }
-
-    if (req.method === 'DELETE') {
-      const { id } = req.query;
-      professores = professores.filter(p => p.id !== parseInt(id));
-      
-      fs.writeFileSync(professoresPath, JSON.stringify(professores, null, 2));
-      
-      return res.status(200).json({ mensagem: 'Professor excluído com sucesso' });
+      // Fallback local
+      if (fs.existsSync(professoresPath)) {
+        const professores = JSON.parse(fs.readFileSync(professoresPath, 'utf8'));
+        return res.status(200).json(professores);
+      }
+      return res.status(200).json([]);
     }
 
     return res.status(405).json({ erro: 'Método não permitido' });
-
   } catch (error) {
     console.error('Erro na API de professores:', error);
     return res.status(500).json({ erro: 'Erro interno do servidor' });

@@ -26,6 +26,10 @@ export default function ProfessorSidebar() {
           👥 Alunos
         </Link>
 
+        <Link href="/professor/dashboard" className="block px-4 py-2 rounded hover:bg-gray-100 text-gray-700">
+          💬 Fórum
+        </Link>
+
         <hr className="my-4" />
 
         <h3 className="text-gray-500 text-xs font-bold uppercase mb-4">Outros</h3>
