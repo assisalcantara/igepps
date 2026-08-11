@@ -299,12 +299,6 @@ export default function AlunoDashboard() {
             🏆 Certificados
           </button>
           <button
-            onClick={() => setAbaAtiva('financeiro')}
-            className={`w-full text-left px-6 py-3 text-sm font-medium hover:bg-blue-700/40 transition-all ${abaAtiva === 'financeiro' ? 'bg-blue-700/60 border-l-4 border-yellow-400' : ''}`}
-          >
-            💰 Financeiro
-          </button>
-          <button
             onClick={() => setAbaAtiva('perfil')}
             className={`w-full text-left px-6 py-3 text-sm font-medium hover:bg-blue-700/40 transition-all ${abaAtiva === 'perfil' ? 'bg-blue-700/60 border-l-4 border-yellow-400' : ''}`}
           >
