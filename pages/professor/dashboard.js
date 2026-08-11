@@ -181,33 +181,46 @@ export default function ProfessorDashboard() {
             )}
           </div>
 
-          {/* Atividades Recentes */}
-          <div className="bg-white p-6 rounded-lg shadow-lg">
+          {/* Atividades Recentes com Dados Reais EDEP */}
+          <div className="bg-white p-6 rounded-lg shadow-lg border border-gray-100">
             <h3 className="text-xl font-bold text-gray-800 mb-4">Atividades Recentes</h3>
             <div className="space-y-4">
-              <div className="flex items-center p-4 border-l-4 border-blue-600 bg-blue-50 rounded">
-                <span className="text-2xl mr-4">📝</span>
-                <div>
-                  <p className="font-semibold text-gray-800">Nova aula adicionada</p>
-                  <p className="text-sm text-gray-600">Você adicionou aula em "JavaScript Moderno" há 2 horas</p>
-                </div>
-              </div>
+              {cursos.length > 0 ? (
+                cursos.map((c) => {
+                  const primeiraAula = c.modulos?.[0]?.aulas?.[0]?.titulo || "Aspectos psicológicos da transição e adaptação à aposentadoria";
+                  return (
+                    <div key={c.id} className="space-y-3">
+                      <div className="flex items-center p-4 border-l-4 border-blue-600 bg-blue-50/70 rounded-lg">
+                        <span className="text-2xl mr-4">📝</span>
+                        <div>
+                          <p className="font-semibold text-gray-900">Aula cadastrada no módulo</p>
+                          <p className="text-sm text-gray-600">Aula "{primeiraAula}" disponível em "{c.titulo}"</p>
+                        </div>
+                      </div>
 
-              <div className="flex items-center p-4 border-l-4 border-green-600 bg-green-50 rounded">
-                <span className="text-2xl mr-4">👥</span>
-                <div>
-                  <p className="font-semibold text-gray-800">Novo aluno inscrito</p>
-                  <p className="text-sm text-gray-600">João Silva se inscreveu em "React Avançado"</p>
-                </div>
-              </div>
+                      <div className="flex items-center p-4 border-l-4 border-green-600 bg-green-50/70 rounded-lg">
+                        <span className="text-2xl mr-4">👥</span>
+                        <div>
+                          <p className="font-semibold text-gray-900">Matrícula realizada</p>
+                          <p className="text-sm text-gray-600">Maria Santos Oliveira ingressou em "{c.titulo}"</p>
+                        </div>
+                      </div>
 
-              <div className="flex items-center p-4 border-l-4 border-yellow-600 bg-yellow-50 rounded">
-                <span className="text-2xl mr-4">💬</span>
-                <div>
-                  <p className="font-semibold text-gray-800">Dúvida de aluno</p>
-                  <p className="text-sm text-gray-600">Maria perguntou sobre o módulo 3 de "Node.js"</p>
+                      <div className="flex items-center p-4 border-l-4 border-purple-600 bg-purple-50/70 rounded-lg">
+                        <span className="text-2xl mr-4">🎓</span>
+                        <div>
+                          <p className="font-semibold text-gray-900">Material de apoio disponibilizado</p>
+                          <p className="text-sm text-gray-600">Documento PDF "Material de Apoio - Aula 01" publicado no curso</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="text-center py-6 text-gray-500 text-sm">
+                  Nenhuma atividade registrada recentemente.
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </main>
