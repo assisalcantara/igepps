@@ -99,8 +99,7 @@ export default function RecuperarSenha() {
         {/* Header Institucional EDEP */}
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-3">
-            <img src="/images/igepps-logo2.png" alt="EDEP" className="h-12 w-auto" />
-            <h1 className="text-2xl font-bold text-blue-900">EDEP</h1>
+            <img src="/images/logo_edep.png" alt="EDEP" className="h-16 w-auto" />
           </div>
           <Link href="/login">
             <button className="text-gray-500 hover:text-gray-700 transition" title="Voltar ao Login">
