@@ -77,47 +77,94 @@ export default async function handler(req, res) {
           
           return res.status(201).json({ success: true, message: 'Pré-cadastro realizado com sucesso!' });
         } else {
-          // Cadastro completo pelo admin
-          // Verificar se email já existe
-          const emailExiste = alunos.find(a => a.email === req.body.email);
-          if (emailExiste) {
-            return res.status(400).json({ error: 'Email já cadastrado' });
+          // Cadastro completo pelo admin via Supabase Auth + public.usuarios
+          const { nomeCompleto, email, senha, cpf, whatsapp, dataNascimento, endereco, cidade, estado, cep, foto } = req.body;
+
+          if (!email || !senha || !nomeCompleto) {
+            return res.status(400).json({ error: 'Nome completo, e-mail e senha são obrigatórios' });
           }
 
-          // Hash da senha
-          const senhaHash = await bcrypt.hash(req.body.senha, 10);
+          const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://kmlwgvrtissssknqpvbg.supabase.co';
+          const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-          const novoAluno = {
-            id: Date.now(),
-            nomeCompleto: req.body.nomeCompleto,
-            email: req.body.email,
-            senha: senhaHash,
-            cpf: req.body.cpf,
-            whatsapp: req.body.whatsapp,
-            dataNascimento: req.body.dataNascimento,
-            endereco: req.body.endereco,
-            cidade: req.body.cidade,
-            estado: req.body.estado,
-            cep: req.body.cep,
-            foto: req.body.foto || '',
-            status: 'aprovado',
-            tipo: 'aluno',
-            dataCadastro: new Date().toISOString(),
-            cursos: req.body.cursos || [],
+          if (!supabaseServiceKey) {
+            console.error('SUPABASE_SERVICE_ROLE_KEY não configurada no servidor');
+            return res.status(500).json({ error: 'Configuração do servidor incompleta (Service Role Key)' });
+          }
+
+          const { createClient } = require('@supabase/supabase-js');
+          const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+          // 1. Criar o usuário no Supabase Auth
+          const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+            email: String(email).trim().toLowerCase(),
+            password: String(senha),
+            email_confirm: true,
+            user_metadata: {
+              nome_completo: String(nomeCompleto).trim(),
+              tipo: 'aluno'
+            }
+          });
+
+          if (authError) {
+            console.error('Erro ao criar usuário no Supabase Auth:', authError);
+            if (authError.message?.includes('already registered') || authError.status === 422) {
+              return res.status(409).json({ error: 'Este e-mail já está cadastrado no sistema.' });
+            }
+            return res.status(500).json({ error: 'Erro ao criar usuário no autenticador', detalhe: authError.message });
+          }
+
+          const newUserId = authData.user.id;
+
+          // 2. Criar o perfil do aluno na tabela public.usuarios (com ID idêntico ao auth.users.id)
+          const { data: usuarioPerfil, error: perfilError } = await supabaseAdmin
+            .from('usuarios')
+            .insert({
+              id: newUserId,
+              nome_completo: String(nomeCompleto).trim(),
+              email: String(email).trim().toLowerCase(),
+              cpf: cpf ? String(cpf).trim() : null,
+              whatsapp: whatsapp ? String(whatsapp).trim() : null,
+              data_nascimento: dataNascimento || null,
+              endereco: endereco ? String(endereco).trim() : null,
+              cidade: cidade ? String(cidade).trim() : null,
+              estado: estado ? String(estado).trim() : null,
+              cep: cep ? String(cep).trim() : null,
+              foto_url: foto ? String(foto).trim() : '',
+              tipo: 'aluno',
+              status: 'ativo'
+            })
+            .select('*')
+            .single();
+
+          if (perfilError) {
+            console.error('Erro ao criar perfil em public.usuarios, desfazendo Auth user:', perfilError);
+            // Rollback: excluir usuário do Auth se falhar ao criar perfil
+            await supabaseAdmin.auth.admin.deleteUser(newUserId);
+            return res.status(500).json({ error: 'Erro ao salvar perfil do aluno no banco de dados', detalhe: perfilError.message });
+          }
+
+          const alunoFormatado = {
+            id: usuarioPerfil.id,
+            nomeCompleto: usuarioPerfil.nome_completo,
+            email: usuarioPerfil.email,
+            cpf: usuarioPerfil.cpf,
+            whatsapp: usuarioPerfil.whatsapp,
+            status: usuarioPerfil.status,
+            tipo: usuarioPerfil.tipo,
+            dataCadastro: usuarioPerfil.created_at,
+            cursos: [],
             ativo: true
           };
-          alunos.push(novoAluno);
-          salvarAlunos(alunos);
-          
-          // Enviar e-mail com credenciais
+
+          // Tentar enviar e-mail com credenciais
           try {
-            await enviarEmailCadastroCompleto(novoAluno, req.body.senha);
+            await enviarEmailCadastroCompleto(alunoFormatado, senha);
           } catch (emailError) {
-            console.error('Erro ao enviar e-mail:', emailError);
-            // Não falha o cadastro se o e-mail falhar
+            console.error('Erro ao enviar e-mail de cadastro:', emailError);
           }
-          
-          return res.status(201).json(novoAluno);
+
+          return res.status(201).json(alunoFormatado);
         }
       }
 
@@ -169,11 +216,87 @@ export default async function handler(req, res) {
             alunos[alunoIndex] = { ...alunos[alunoIndex], ...dadosAtualizados };
             break;
 
-          case 'vincularCurso':
-            if (!alunos[alunoIndex].cursos.includes(data.cursoId)) {
-              alunos[alunoIndex].cursos.push(data.cursoId);
+          case 'vincularCurso': {
+            const alunoId = id || data.alunoId;
+            const cursoId = data.cursoId;
+
+            if (!alunoId || !cursoId) {
+              return res.status(400).json({ error: 'alunoId e cursoId são obrigatórios para realizar a matrícula' });
             }
-            break;
+
+            const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://kmlwgvrtissssknqpvbg.supabase.co';
+            const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+            if (!supabaseServiceKey) {
+              return res.status(500).json({ error: 'Configuração do servidor incompleta (Service Role Key)' });
+            }
+
+            const { createClient } = require('@supabase/supabase-js');
+            const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+            // 1. Validar que o aluno existe em public.usuarios e tem tipo = 'aluno'
+            const { data: usuarioAluno, error: errAluno } = await supabaseAdmin
+              .from('usuarios')
+              .select('id, tipo, nome_completo, email')
+              .eq('id', String(alunoId))
+              .single();
+
+            if (errAluno || !usuarioAluno || usuarioAluno.tipo !== 'aluno') {
+              return res.status(404).json({ error: 'Aluno não encontrado no banco de dados' });
+            }
+
+            // 2. Validar que o curso existe em public.cursos
+            const { data: cursoExistente, error: errCurso } = await supabaseAdmin
+              .from('cursos')
+              .select('id, titulo')
+              .eq('id', String(cursoId))
+              .single();
+
+            if (errCurso || !cursoExistente) {
+              return res.status(404).json({ error: 'Curso não encontrado no banco de dados' });
+            }
+
+            // 3. Verificar se já existe matrícula ativa para evitar erro de UNIQUE constraint
+            const { data: matriculaExistente } = await supabaseAdmin
+              .from('matriculas')
+              .select('*')
+              .eq('aluno_id', String(alunoId))
+              .eq('curso_id', String(cursoId))
+              .maybeSingle();
+
+            if (matriculaExistente) {
+              return res.status(200).json({
+                message: 'O aluno já está matriculado neste curso.',
+                matricula: matriculaExistente
+              });
+            }
+
+            // 4. Inserir nova matrícula no Supabase PostgreSQL
+            const { data: novaMatricula, error: errMat } = await supabaseAdmin
+              .from('matriculas')
+              .insert({
+                aluno_id: String(alunoId),
+                curso_id: String(cursoId),
+                progresso_percentual: 0,
+                status: 'em_andamento'
+              })
+              .select('*')
+              .single();
+
+            if (errMat) {
+              console.error('Erro ao criar matrícula no Supabase:', errMat);
+              if (errMat.code === '23505') {
+                return res.status(409).json({ error: 'O aluno já está matriculado neste curso.' });
+              }
+              return res.status(500).json({ error: 'Erro ao registrar matrícula no banco de dados', detalhe: errMat.message });
+            }
+
+            return res.status(201).json({
+              success: true,
+              message: 'Matrícula realizada com sucesso!',
+              matricula: novaMatricula
+            });
+          }
 
           case 'desvincularCurso':
             alunos[alunoIndex].cursos = alunos[alunoIndex].cursos.filter(

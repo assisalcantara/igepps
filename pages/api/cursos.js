@@ -135,22 +135,55 @@ export default async function handler(req, res) {
       }
 
       case 'POST': {
-        const cursos = lerCursos();
-        const novoCurso = {
-          id: Date.now(),
-          titulo: req.body.titulo,
-          descricao: req.body.descricao,
-          categoria: req.body.categoria,
-          cargaHoraria: req.body.cargaHoraria,
-          thumbnail: req.body.thumbnail || '',
-          videoApresentacao: req.body.videoApresentacao || '',
-          ativo: req.body.ativo !== false,
-          dataCriacao: new Date().toISOString(),
-          modulos: []
-        };
-        cursos.push(novoCurso);
-        salvarCursos(cursos);
-        return res.status(201).json(novoCurso);
+        const { titulo, descricao, categoria, cargaHoraria, thumbnail, videoApresentacao, ativo } = req.body;
+
+        if (!titulo) {
+          return res.status(400).json({ error: 'O título do curso é obrigatório' });
+        }
+
+        const cargaHorariaNum = parseInt(cargaHoraria) || 15;
+
+        // Tentar criar no Supabase PostgreSQL
+        try {
+          const { data: dbNovoCurso, error: dbError } = await supabase
+            .from('cursos')
+            .insert({
+              titulo: String(titulo).trim(),
+              descricao: descricao ? String(descricao).trim() : '',
+              categoria: categoria ? String(categoria).trim() : 'Geral',
+              carga_horaria: cargaHorariaNum,
+              thumbnail_url: thumbnail ? String(thumbnail).trim() : '',
+              video_apresentacao_url: videoApresentacao ? String(videoApresentacao).trim() : '',
+              ativo: ativo !== false
+            })
+            .select('*')
+            .single();
+
+          if (!dbError && dbNovoCurso) {
+            const cursoFormatado = {
+              id: dbNovoCurso.id,
+              titulo: dbNovoCurso.titulo,
+              descricao: dbNovoCurso.descricao,
+              categoria: dbNovoCurso.categoria || 'Geral',
+              cargaHoraria: String(dbNovoCurso.carga_horaria || 15),
+              thumbnail: dbNovoCurso.thumbnail_url || '',
+              videoApresentacao: dbNovoCurso.video_apresentacao_url || '',
+              ativo: dbNovoCurso.ativo !== false,
+              dataCriacao: dbNovoCurso.created_at,
+              modulos: []
+            };
+
+            return res.status(201).json(cursoFormatado);
+          } else if (dbError) {
+            console.error('Erro ao inserir curso no Supabase:', dbError);
+            return res.status(500).json({ error: 'Erro ao cadastrar curso no banco de dados', detalhe: dbError.message });
+          }
+        } catch (errDb) {
+          console.error('Exceção ao inserir curso no Supabase:', errDb);
+          return res.status(500).json({ error: 'Erro interno ao comunicar com o banco de dados' });
+        }
+
+        return res.status(500).json({ error: 'Não foi possível cadastrar o curso' });
       }
 
       case 'PUT': {
@@ -176,16 +209,53 @@ export default async function handler(req, res) {
             };
             break;
 
-          case 'addModulo':
-            const novoModulo = {
-              id: Date.now(),
-              titulo: data.titulo,
-              descricao: data.descricao,
-              ordem: cursos[cursoIndex].modulos.length + 1,
+          case 'addModulo': {
+            if (!id || !data.titulo) {
+              return res.status(400).json({ error: 'Dados incompletos para criação de módulo' });
+            }
+
+            // Buscar ordem atual dos módulos desse curso no Supabase
+            const { data: modulosExistentes } = await supabase
+              .from('modulos')
+              .select('id, ordem')
+              .eq('curso_id', String(id));
+
+            const proximaOrdem = (modulosExistentes?.length || 0) + 1;
+
+            // Inserir módulo no Supabase PostgreSQL
+            const { data: dbModulo, error: errMod } = await supabase
+              .from('modulos')
+              .insert({
+                curso_id: String(id),
+                titulo: String(data.titulo).trim(),
+                descricao: data.descricao ? String(data.descricao).trim() : '',
+                ordem: proximaOrdem
+              })
+              .select('*')
+              .single();
+
+            if (errMod || !dbModulo) {
+              console.error('Erro ao criar módulo no Supabase:', errMod);
+              return res.status(500).json({ error: 'Falha ao criar módulo no banco de dados', detalhe: errMod?.message });
+            }
+
+            // Buscar e retornar a árvore do curso atualizada do Supabase
+            const dbCursosAtualizados = await lerCursosSupabase();
+            const cursoAtualizado = dbCursosAtualizados?.find(c => String(c.id) === String(id));
+
+            if (cursoAtualizado) {
+              return res.status(200).json(cursoAtualizado);
+            }
+
+            return res.status(200).json({
+              id: dbModulo.id,
+              cursoId: dbModulo.curso_id,
+              titulo: dbModulo.titulo,
+              descricao: dbModulo.descricao,
+              ordem: dbModulo.ordem,
               aulas: []
-            };
-            cursos[cursoIndex].modulos.push(novoModulo);
-            break;
+            });
+          }
 
           case 'updateModulo':
             const moduloIndex = cursos[cursoIndex].modulos.findIndex(m => String(m.id) === String(data.moduloId));
@@ -198,22 +268,61 @@ export default async function handler(req, res) {
             cursos[cursoIndex].modulos = cursos[cursoIndex].modulos.filter(m => String(m.id) !== String(data.moduloId));
             break;
 
-          case 'addAula':
-            const modulo = cursos[cursoIndex].modulos.find(m => String(m.id) === String(data.moduloId));
-            if (modulo) {
-              const novaAula = {
-                id: Date.now(),
-                titulo: data.titulo,
-                descricao: data.descricao,
-                videoUrl: data.videoUrl,
-                duracao: data.duracao,
-                ordem: modulo.aulas.length + 1,
-                materiais: [],
-                questoes: []
-              };
-              modulo.aulas.push(novaAula);
+          case 'addAula': {
+            const moduloId = data.moduloId;
+            if (!moduloId || !data.titulo) {
+              return res.status(400).json({ error: 'Dados incompletos para criação de aula (moduloId e titulo são obrigatórios)' });
             }
-            break;
+
+            const duracaoNum = parseInt(data.duracao) || 0;
+
+            // Consultar a ordem atual das aulas deste módulo no Supabase
+            const { data: aulasExistentes } = await supabase
+              .from('aulas')
+              .select('id, ordem')
+              .eq('modulo_id', String(moduloId));
+
+            const proximaOrdem = (aulasExistentes?.length || 0) + 1;
+
+            // Inserir aula no Supabase PostgreSQL
+            const { data: dbAula, error: errAula } = await supabase
+              .from('aulas')
+              .insert({
+                modulo_id: String(moduloId),
+                titulo: String(data.titulo).trim(),
+                descricao: data.descricao ? String(data.descricao).trim() : '',
+                video_url: data.videoUrl ? String(data.videoUrl).trim() : '',
+                duracao_minutos: duracaoNum,
+                ordem: proximaOrdem
+              })
+              .select('*')
+              .single();
+
+            if (errAula || !dbAula) {
+              console.error('Erro ao criar aula no Supabase:', errAula);
+              return res.status(500).json({ error: 'Falha ao criar aula no banco de dados', detalhe: errAula?.message });
+            }
+
+            // Buscar e retornar a árvore do curso atualizada do Supabase
+            const dbCursosAtualizados = await lerCursosSupabase();
+            const cursoAtualizado = dbCursosAtualizados?.find(c => String(c.id) === String(id));
+
+            if (cursoAtualizado) {
+              return res.status(200).json(cursoAtualizado);
+            }
+
+            return res.status(200).json({
+              id: dbAula.id,
+              moduloId: dbAula.modulo_id,
+              titulo: dbAula.titulo,
+              descricao: dbAula.descricao,
+              videoUrl: dbAula.video_url,
+              duracao: String(dbAula.duracao_minutos),
+              ordem: dbAula.ordem,
+              materiais: [],
+              questoes: []
+            });
+          }
 
           case 'updateAula':
             const mod = cursos[cursoIndex].modulos.find(m => String(m.id) === String(data.moduloId));
@@ -238,21 +347,45 @@ export default async function handler(req, res) {
             }
             break;
 
-          case 'addMaterial':
-            const moduloMat = cursos[cursoIndex].modulos.find(m => m.id === data.moduloId);
-            if (moduloMat) {
-              const aulaMat = moduloMat.aulas.find(a => a.id === data.aulaId);
-              if (aulaMat) {
-                const novoMaterial = {
-                  id: Date.now(),
-                  titulo: data.titulo,
-                  tipo: data.tipo, // 'pdf' ou 'imagem'
-                  url: data.url
-                };
-                aulaMat.materiais.push(novoMaterial);
-              }
+          case 'addMaterial': {
+            const aulaId = data.aulaId;
+            if (!aulaId || !data.titulo || !data.url) {
+              return res.status(400).json({ error: 'Dados incompletos para cadastro de material (aulaId, titulo e url são obrigatórios)' });
             }
-            break;
+
+            // Inserir material de apoio no Supabase PostgreSQL
+            const { data: dbMaterial, error: errMat } = await supabase
+              .from('materiais_apoio')
+              .insert({
+                aula_id: String(aulaId),
+                titulo: String(data.titulo).trim(),
+                tipo: data.tipo ? String(data.tipo).trim() : 'pdf',
+                arquivo_url: String(data.url).trim()
+              })
+              .select('*')
+              .single();
+
+            if (errMat || !dbMaterial) {
+              console.error('Erro ao cadastrar material no Supabase:', errMat);
+              return res.status(500).json({ error: 'Falha ao cadastrar material no banco de dados', detalhe: errMat?.message });
+            }
+
+            // Buscar e retornar a árvore do curso atualizada do Supabase
+            const dbCursosAtualizados = await lerCursosSupabase();
+            const cursoAtualizado = dbCursosAtualizados?.find(c => String(c.id) === String(id));
+
+            if (cursoAtualizado) {
+              return res.status(200).json(cursoAtualizado);
+            }
+
+            return res.status(200).json({
+              id: dbMaterial.id,
+              aulaId: dbMaterial.aula_id,
+              titulo: dbMaterial.titulo,
+              tipo: dbMaterial.tipo,
+              url: dbMaterial.arquivo_url
+            });
+          }
 
           case 'deleteMaterial':
             const moduloDelMat = cursos[cursoIndex].modulos.find(m => m.id === data.moduloId);
