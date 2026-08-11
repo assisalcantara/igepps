@@ -34,13 +34,12 @@ export default function Home() {
               <Link href="#cursos" className="hover:underline">Cursos</Link>
               <Link href="#sobre" className="hover:underline">Sobre</Link>
               <Link href="#contato" className="hover:underline">Contato</Link>
-              <Link href="/login" className="bg-yellow-400 hover:bg-yellow-500 text-blue-900 font-semibold px-4 py-2 rounded shadow transition">Área do Aluno</Link>
-              <Link href="/admin/dashboard" className="bg-white hover:bg-yellow-400 text-blue-900 font-semibold px-3 py-2 rounded shadow transition text-sm">Admin</Link>
+              <Link href="/login" className="bg-yellow-400 hover:bg-yellow-500 text-blue-900 font-semibold px-4 py-2 rounded shadow transition">Acessar Plataforma</Link>
             </nav>
 
             {/* Botões Mobile */}
             <div className="flex lg:hidden gap-2">
-              <Link href="/login" className="bg-yellow-400 hover:bg-yellow-500 text-blue-900 font-semibold px-3 py-2 rounded shadow transition text-sm">Área do Aluno</Link>
+              <Link href="/login" className="bg-yellow-400 hover:bg-yellow-500 text-blue-900 font-semibold px-3 py-2 rounded shadow transition text-sm">Acessar Plataforma</Link>
             </div>
           </div>
           
@@ -49,7 +48,6 @@ export default function Home() {
             <Link href="/" className="hover:underline">Home</Link>
             <Link href="#cursos" className="hover:underline">Cursos</Link>
             <Link href="#sobre" className="hover:underline">Sobre</Link>
-            <Link href="/admin/dashboard" className="hover:underline">Admin</Link>
           </nav>
         </div>
       </header>
