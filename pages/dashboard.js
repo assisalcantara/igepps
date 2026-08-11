@@ -24,22 +24,43 @@ export default function AlunoDashboard() {
   const [menuAberto, setMenuAberto] = useState(false);
 
   useEffect(() => {
-    const usu = safeGetItem("usuario");
-    if (!usu) {
-      router.push("/login");
-      return;
+    async function inicializarDashboardAluno() {
+      // 1. Tentar obter usuário da sessão do Supabase Auth
+      const { data: sessionData } = await supabase.auth.getSession();
+      const authUser = sessionData?.session?.user;
+
+      let u = null;
+      const usuStorage = safeGetItem("usuario");
+      if (usuStorage) {
+        u = JSON.parse(usuStorage);
+      }
+
+      const activeUserId = authUser?.id || u?.id;
+
+      if (!activeUserId) {
+        router.push("/login");
+        return;
+      }
+
+      if (u && u.tipo !== "aluno") {
+        router.push("/admin/dashboard");
+        return;
+      }
+
+      const usuarioObj = u || {
+        id: authUser.id,
+        email: authUser.email,
+        nomeCompleto: authUser.user_metadata?.nome || authUser.email.split('@')[0],
+        tipo: 'aluno'
+      };
+
+      setUsuario(usuarioObj);
+      setPerfilForm(usuarioObj);
+      carregarCursos(activeUserId);
+      carregarMeusDocumentos();
     }
 
-    const u = JSON.parse(usu);
-    if (u.tipo !== "aluno") {
-      router.push("/admin/dashboard");
-      return;
-    }
-
-    setUsuario(u);
-    setPerfilForm(u);
-    carregarCursos(u.id);
-    carregarMeusDocumentos();
+    inicializarDashboardAluno();
   }, []);
 
   const carregarCursos = async (alunoIdParam) => {
@@ -47,26 +68,33 @@ export default function AlunoDashboard() {
     try {
       const alunoId = alunoIdParam || usuario?.id;
 
-      // 1. Tentar buscar matrículas reais do aluno no Supabase
+      // 1. Consultar public.matriculas no Supabase pelo aluno_id do aluno autenticado
       if (alunoId) {
-        const { data: matriculasDb } = await supabase
+        const { data: matriculasDb, error: errMat } = await supabase
           .from('matriculas')
-          .select(`
-            id, progresso_percentual, status, data_matricula,
-            cursos (
-              id, titulo, descricao, thumbnail_url, ativo, carga_horaria,
-              modulos ( id, titulo, ordem, aulas ( id, titulo, ordem, video_url ) )
-            )
-          `)
+          .select('id, curso_id, progresso_percentual, status, data_matricula')
           .eq('aluno_id', alunoId);
 
-        if (matriculasDb && matriculasDb.length > 0) {
+        if (!errMat && matriculasDb && matriculasDb.length > 0) {
+          const cursoIds = matriculasDb.map(m => m.curso_id);
+          
+          const { data: cursosDb } = await supabase
+            .from('cursos')
+            .select(`
+              id, titulo, descricao, thumbnail_url, ativo, carga_horaria,
+              modulos ( id, titulo, ordem, aulas ( id, titulo, ordem, video_url ) )
+            `)
+            .in('id', cursoIds);
+
+          const cursosMap = {};
+          (cursosDb || []).forEach(c => { cursosMap[c.id] = c; });
+
           const cursosFormatados = matriculasDb.map(m => {
-            const curso = m.cursos;
+            const curso = cursosMap[m.curso_id];
             const primeiraAula = curso?.modulos?.[0]?.aulas?.[0]?.titulo || "Aula 1";
             return {
-              id: curso?.id || m.id,
-              titulo: curso?.titulo || "Curso EDEP",
+              id: curso?.id || m.curso_id,
+              titulo: curso?.titulo || "SAÚDE MENTAL E EMOCIONAL NA APOSENTADORIA",
               descricao: curso?.descricao || "",
               thumbnail: curso?.thumbnail_url || "/uploads/thumbnails/thumb_1786409743341.png",
               progresso: m.progresso_percentual || 0,
