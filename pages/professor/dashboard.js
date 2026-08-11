@@ -3,13 +3,16 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import ProfessorHeader from "@/components/ProfessorHeader";
 import ProfessorSidebar from "@/components/ProfessorSidebar";
+import Forum from "@/components/Forum";
 import { safeGetItem } from '@/lib/storage';
+import { supabase } from '@/lib/supabase';
 
 export default function ProfessorDashboard() {
   const router = useRouter();
   const [usuario, setUsuario] = useState(null);
   const [cursos, setCursos] = useState([]);
   const [carregando, setCarregando] = useState(true);
+  const [abaAtiva, setAbaAtiva] = useState("cursos");
 
   useEffect(() => {
     const usu = safeGetItem("usuario");
@@ -116,133 +119,165 @@ export default function ProfessorDashboard() {
             </div>
           </div>
 
-          {/* Seção de Cursos */}
-          <div className="mb-8">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-2xl font-bold text-gray-800">Meus Cursos</h3>
-            </div>
-
-            {carregando ? (
-              <div className="text-center py-8">Carregando...</div>
-            ) : cursos.length === 0 ? (
-              <div className="text-center py-12 bg-white rounded-lg">
-                <p className="text-gray-500 text-lg">Você ainda não tem cursos</p>
-                <Link href="/professor/cursos" className="text-blue-600 hover:underline mt-4 inline-block">
-                  Criar seu primeiro curso
-                </Link>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {cursos.map(curso => (
-                  <div key={curso.id} className="bg-white rounded-lg shadow-lg hover:shadow-xl transition overflow-hidden border border-gray-100 flex flex-col justify-between">
-                    <div>
-                      {/* Banner do Curso */}
-                      <div className="h-44 w-full overflow-hidden bg-gradient-to-r from-blue-600 to-blue-800 relative">
-                        {curso.thumbnail || curso.thumbnail_url ? (
-                          <img
-                            src={curso.thumbnail || curso.thumbnail_url}
-                            alt={curso.titulo}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-white/50 text-sm font-semibold">
-                            EDEP Cursos
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="p-6">
-                        <h4 className="text-lg font-bold text-gray-900 mb-3 leading-snug">{curso.titulo}</h4>
-                        <div className="text-gray-600 text-sm mb-4 space-y-1 whitespace-pre-line leading-relaxed">
-                          {curso.descricao
-                            ?.replace(/<br\s*\/?>/gi, '\n')
-                            .replace(/<\/p>\s*<p[^>]*>/gi, '\n')
-                            .replace(/<p[^>]*>/gi, '')
-                            .replace(/<\/p>/gi, '')
-                            .replace(/<div[^>]*>/gi, '')
-                            .replace(/<\/div>/gi, '\n')
-                            .replace(/<[^>]*>/g, '')
-                            .replace(/&nbsp;/g, ' ')
-                            .replace(/&amp;/g, '&')
-                            .replace(/&lt;/g, '<')
-                            .replace(/&gt;/g, '>')
-                            .replace(/&quot;/g, '"')
-                            .replace(/;\s*/g, ';\n')
-                            .replace(/\n\s*\n/g, '\n')
-                            .trim() || 'Sem descrição.'}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="px-6 pb-6 pt-0">
-                      <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
-                        <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
-                          <p className="text-gray-600 text-xs font-semibold">Alunos</p>
-                          <p className="text-2xl font-bold text-blue-600 mt-0.5">{curso.alunos}</p>
-                        </div>
-                        <div className="bg-purple-50 p-3 rounded-lg border border-purple-100">
-                          <p className="text-gray-600 text-xs font-semibold">Aulas</p>
-                          <p className="text-2xl font-bold text-purple-600 mt-0.5">{curso.aulas}</p>
-                        </div>
-                      </div>
-
-                      <div className="flex gap-2">
-                        <Link href={`/professor/cursos/${curso.id}`} className="flex-1 bg-blue-600 text-white text-center py-2.5 rounded-lg hover:bg-blue-700 font-semibold text-sm transition">
-                          Editar
-                        </Link>
-                        <button className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg hover:bg-gray-300 font-semibold text-sm transition">
-                          Visualizar
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+          {/* Navegação de Abas do Professor */}
+          <div className="flex border-b border-gray-200 mb-8 bg-white rounded-lg p-2 shadow-sm">
+            <button
+              onClick={() => setAbaAtiva("cursos")}
+              className={`px-6 py-2.5 rounded-md font-semibold text-sm transition ${
+                abaAtiva === "cursos"
+                  ? "bg-blue-600 text-white shadow-sm"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+              }`}
+            >
+              📚 Meus Cursos & Estatísticas
+            </button>
+            <button
+              onClick={() => setAbaAtiva("forum")}
+              className={`px-6 py-2.5 rounded-md font-semibold text-sm transition ${
+                abaAtiva === "forum"
+                  ? "bg-blue-600 text-white shadow-sm"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+              }`}
+            >
+              💬 Fórum de Discussões
+            </button>
           </div>
 
-          {/* Atividades Recentes com Dados Reais EDEP */}
-          <div className="bg-white p-6 rounded-lg shadow-lg border border-gray-100">
-            <h3 className="text-xl font-bold text-gray-800 mb-4">Atividades Recentes</h3>
-            <div className="space-y-4">
-              {cursos.length > 0 ? (
-                cursos.map((c) => {
-                  const primeiraAula = c.modulos?.[0]?.aulas?.[0]?.titulo || "Aspectos psicológicos da transição e adaptação à aposentadoria";
-                  return (
-                    <div key={c.id} className="space-y-3">
-                      <div className="flex items-center p-4 border-l-4 border-blue-600 bg-blue-50/70 rounded-lg">
-                        <span className="text-2xl mr-4">📝</span>
-                        <div>
-                          <p className="font-semibold text-gray-900">Aula cadastrada no módulo</p>
-                          <p className="text-sm text-gray-600">Aula "{primeiraAula}" disponível em "{c.titulo}"</p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center p-4 border-l-4 border-green-600 bg-green-50/70 rounded-lg">
-                        <span className="text-2xl mr-4">👥</span>
-                        <div>
-                          <p className="font-semibold text-gray-900">Matrícula realizada</p>
-                          <p className="text-sm text-gray-600">Maria Santos Oliveira ingressou em "{c.titulo}"</p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center p-4 border-l-4 border-purple-600 bg-purple-50/70 rounded-lg">
-                        <span className="text-2xl mr-4">🎓</span>
-                        <div>
-                          <p className="font-semibold text-gray-900">Material de apoio disponibilizado</p>
-                          <p className="text-sm text-gray-600">Documento PDF "Material de Apoio - Aula 01" publicado no curso</p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="text-center py-6 text-gray-500 text-sm">
-                  Nenhuma atividade registrada recentemente.
+          {abaAtiva === "forum" ? (
+            <div className="bg-white p-6 rounded-lg shadow-lg">
+              <Forum usuario={usuario} />
+            </div>
+          ) : (
+            <>
+              {/* Seção de Cursos */}
+              <div className="mb-8">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-2xl font-bold text-gray-800">Meus Cursos</h3>
                 </div>
-              )}
-            </div>
-          </div>
+
+                {carregando ? (
+                  <div className="text-center py-8">Carregando...</div>
+                ) : cursos.length === 0 ? (
+                  <div className="text-center py-12 bg-white rounded-lg">
+                    <p className="text-gray-500 text-lg">Você ainda não tem cursos</p>
+                    <Link href="/professor/cursos" className="text-blue-600 hover:underline mt-4 inline-block">
+                      Criar seu primeiro curso
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {cursos.map(curso => (
+                      <div key={curso.id} className="bg-white rounded-lg shadow-lg hover:shadow-xl transition overflow-hidden border border-gray-100 flex flex-col justify-between">
+                        <div>
+                          {/* Banner do Curso */}
+                          <div className="h-44 w-full overflow-hidden bg-gradient-to-r from-blue-600 to-blue-800 relative">
+                            {curso.thumbnail || curso.thumbnail_url ? (
+                              <img
+                                src={curso.thumbnail || curso.thumbnail_url}
+                                alt={curso.titulo}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-white/50 text-sm font-semibold">
+                                EDEP Cursos
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="p-6">
+                            <h4 className="text-lg font-bold text-gray-900 mb-3 leading-snug">{curso.titulo}</h4>
+                            <div className="text-gray-600 text-sm mb-4 space-y-1 whitespace-pre-line leading-relaxed">
+                              {curso.descricao
+                                ?.replace(/<br\s*\/?>/gi, '\n')
+                                .replace(/<\/p>\s*<p[^>]*>/gi, '\n')
+                                .replace(/<p[^>]*>/gi, '')
+                                .replace(/<\/p>/gi, '')
+                                .replace(/<div[^>]*>/gi, '')
+                                .replace(/<\/div>/gi, '\n')
+                                .replace(/<[^>]*>/g, '')
+                                .replace(/&nbsp;/g, ' ')
+                                .replace(/&amp;/g, '&')
+                                .replace(/&lt;/g, '<')
+                                .replace(/&gt;/g, '>')
+                                .replace(/&quot;/g, '"')
+                                .replace(/;\s*/g, ';\n')
+                                .replace(/\n\s*\n/g, '\n')
+                                .trim() || 'Sem descrição.'}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="px-6 pb-6 pt-0">
+                          <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
+                            <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                              <p className="text-gray-600 text-xs font-semibold">Alunos</p>
+                              <p className="text-2xl font-bold text-blue-600 mt-0.5">{curso.alunos}</p>
+                            </div>
+                            <div className="bg-purple-50 p-3 rounded-lg border border-purple-100">
+                              <p className="text-gray-600 text-xs font-semibold">Aulas</p>
+                              <p className="text-2xl font-bold text-purple-600 mt-0.5">{curso.aulas}</p>
+                            </div>
+                          </div>
+
+                          <div className="flex gap-2">
+                            <Link href={`/professor/cursos/${curso.id}`} className="flex-1 bg-blue-600 text-white text-center py-2.5 rounded-lg hover:bg-blue-700 font-semibold text-sm transition">
+                              Editar
+                            </Link>
+                            <button className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg hover:bg-gray-300 font-semibold text-sm transition">
+                              Visualizar
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Atividades Recentes com Dados Reais EDEP */}
+              <div className="bg-white p-6 rounded-lg shadow-lg border border-gray-100">
+                <h3 className="text-xl font-bold text-gray-800 mb-4">Atividades Recentes</h3>
+                <div className="space-y-4">
+                  {cursos.length > 0 ? (
+                    cursos.map((c) => {
+                      const primeiraAula = c.modulos?.[0]?.aulas?.[0]?.titulo || "Aspectos psicológicos da transição e adaptação à aposentadoria";
+                      return (
+                        <div key={c.id} className="space-y-3">
+                          <div className="flex items-center p-4 border-l-4 border-blue-600 bg-blue-50/70 rounded-lg">
+                            <span className="text-2xl mr-4">📝</span>
+                            <div>
+                              <p className="font-semibold text-gray-900">Aula cadastrada no módulo</p>
+                              <p className="text-sm text-gray-600">Aula "{primeiraAula}" disponível em "{c.titulo}"</p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center p-4 border-l-4 border-green-600 bg-green-50/70 rounded-lg">
+                            <span className="text-2xl mr-4">👥</span>
+                            <div>
+                              <p className="font-semibold text-gray-900">Matrícula realizada</p>
+                              <p className="text-sm text-gray-600">Maria Santos Oliveira ingressou em "{c.titulo}"</p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center p-4 border-l-4 border-purple-600 bg-purple-50/70 rounded-lg">
+                            <span className="text-2xl mr-4">🎓</span>
+                            <div>
+                              <p className="font-semibold text-gray-900">Material de apoio disponibilizado</p>
+                              <p className="text-sm text-gray-600">Documento PDF "Material de Apoio - Aula 01" publicado no curso</p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="text-center py-6 text-gray-500 text-sm">
+                      Nenhuma atividade registrada recentemente.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
         </main>
       </div>
     </div>

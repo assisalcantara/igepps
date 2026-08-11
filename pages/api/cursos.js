@@ -1,9 +1,10 @@
 import fs from 'fs';
 import path from 'path';
+import { supabase } from '../../lib/supabase';
 
 const cursosFilePath = path.join(process.cwd(), 'data', 'cursos.json');
 
-// Função para ler cursos
+// Função para ler cursos do JSON local (Fallback)
 function lerCursos() {
   try {
     if (!fs.existsSync(cursosFilePath)) {
@@ -18,7 +19,97 @@ function lerCursos() {
   }
 }
 
-// Função para salvar cursos
+// Função para buscar e adaptar a árvore completa de cursos do Supabase PostgreSQL
+async function lerCursosSupabase() {
+  try {
+    const { data: dbCursos, error } = await supabase
+      .from('cursos')
+      .select('id, titulo, descricao, categoria, carga_horaria, thumbnail_url, video_apresentacao_url, ativo, created_at, modulos ( id, titulo, descricao, ordem, aulas ( id, titulo, descricao, video_url, duracao_minutos, ordem, materiais_apoio ( id, titulo, tipo, arquivo_url ) ) ), avaliacoes!avaliacoes_curso_id_fkey ( id, titulo, descricao, nota_minima, duracao_minutos, questoes ( id, enunciado, ordem, opcoes ( id, texto, is_correta, ordem ) ) )');
+
+    if (error || !dbCursos || dbCursos.length === 0) {
+      return null;
+    }
+
+    return dbCursos.map(c => {
+      const avalDb = Array.isArray(c.avaliacoes) ? c.avaliacoes[0] : c.avaliacoes;
+      
+      let avaliacaoObj = null;
+      if (avalDb) {
+        const questoesOrdenadas = (avalDb.questoes || []).sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
+        const questoesFormatadas = questoesOrdenadas.map(q => {
+          const opcoesOrdenadas = (q.opcoes || []).sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
+          const respostaCorretaIdx = opcoesOrdenadas.findIndex(op => op.is_correta);
+          return {
+            id: q.id,
+            enunciado: q.enunciado,
+            opcoes: opcoesOrdenadas.map(op => op.texto),
+            respostaCorreta: respostaCorretaIdx !== -1 ? respostaCorretaIdx : 0
+          };
+        });
+
+        avaliacaoObj = {
+          id: avalDb.id,
+          titulo: avalDb.titulo,
+          descricao: avalDb.descricao,
+          notaMinima: avalDb.nota_minima,
+          duracaoMinutos: avalDb.duracao_minutos,
+          questoes: questoesFormatadas
+        };
+      }
+
+      const modulosOrdenados = (c.modulos || []).sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
+      const modulosFormatados = modulosOrdenados.map(m => {
+        const aulasOrdenadas = (m.aulas || []).sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
+        const aulasFormatadas = aulasOrdenadas.map(a => {
+          const materiaisFormatados = (a.materiais_apoio || []).map(mat => ({
+            id: mat.id,
+            titulo: mat.titulo,
+            tipo: mat.tipo || 'pdf',
+            url: mat.arquivo_url
+          }));
+
+          return {
+            id: a.id,
+            titulo: a.titulo,
+            descricao: a.descricao,
+            videoUrl: a.video_url,
+            duracao: String(a.duracao_minutos || 0),
+            ordem: a.ordem,
+            materiais: materiaisFormatados,
+            questoes: []
+          };
+        });
+
+        return {
+          id: m.id,
+          titulo: m.titulo,
+          descricao: m.descricao,
+          ordem: m.ordem,
+          aulas: aulasFormatadas
+        };
+      });
+
+      return {
+        id: c.id,
+        titulo: c.titulo,
+        descricao: c.descricao,
+        categoria: c.categoria || 'Geral',
+        cargaHoraria: String(c.carga_horaria || 15),
+        thumbnail: c.thumbnail_url || '',
+        videoApresentacao: c.video_apresentacao_url || '',
+        ativo: c.ativo !== false,
+        dataCriacao: c.created_at,
+        modulos: modulosFormatados,
+        avaliacao: avaliacaoObj
+      };
+    });
+  } catch (err) {
+    console.error('Erro na consulta Supabase cursos:', err);
+    return null;
+  }
+}
+
+// Função para salvar cursos (mantida para compatibilidade local)
 function salvarCursos(cursos) {
   try {
     fs.writeFileSync(cursosFilePath, JSON.stringify(cursos, null, 2));
@@ -29,12 +120,16 @@ function salvarCursos(cursos) {
   }
 }
 
-export default function handler(req, res) {
+export default async function handler(req, res) {
   const { method } = req;
 
   try {
     switch (method) {
       case 'GET': {
+        const dbCursos = await lerCursosSupabase();
+        if (dbCursos) {
+          return res.status(200).json(dbCursos);
+        }
         const cursos = lerCursos();
         return res.status(200).json(cursos);
       }
