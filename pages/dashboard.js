@@ -237,9 +237,8 @@ export default function AlunoDashboard() {
     const total = cursos.reduce((acc, curso) => acc + curso.progresso, 0);
     return Math.round(total / cursos.length);
   };
-
   const cursosCompletos = cursos.filter(c => c.progresso === 100).length;
-  const cursosEmProgresso = cursos.filter(c => c.progresso > 0 && c.progresso < 100).length;
+  const cursosEmProgresso = cursos.filter(c => c.progresso < 100).length;
 
   if (!usuario) return <div className="flex items-center justify-center h-screen">Carregando...</div>;
 
@@ -323,29 +322,28 @@ export default function AlunoDashboard() {
             onClick={() => setAbaAtiva('documentos')}
             className={`w-full text-left px-6 py-3 text-sm font-medium hover:bg-blue-700/40 transition-all ${abaAtiva === 'documentos' ? 'bg-blue-700/60 border-l-4 border-yellow-400' : ''}`}
           >
-            📤 Enviar Documentos
+            📄 Enviar Documentos
           </button>
         </nav>
 
-        <div className="absolute bottom-0 w-64 p-6 border-t border-blue-700/30">
+        <div className="absolute bottom-6 w-full px-6">
           <button
             onClick={handleLogout}
-            className="w-full bg-red-600 text-white py-2.5 rounded-lg hover:bg-red-700 transition-all font-semibold shadow-lg text-sm"
+            className="w-full bg-red-600/80 hover:bg-red-600 text-white font-medium py-2 rounded-lg transition text-sm flex items-center justify-center gap-2"
           >
-            🚪 Sair
+            🚪 Sair do Sistema
           </button>
         </div>
       </aside>
 
       {/* Conteúdo Principal */}
-      <main className="flex-1 lg:ml-64 w-full">
-        {/* Header */}
-        <header className="bg-white shadow sticky top-0 z-30">
-          <div className="px-4 lg:px-8 py-4 flex justify-between items-center">
-            {/* Botão Menu Mobile */}
+      <div className="flex-1 lg:ml-64">
+        {/* Topbar Mobile & Desktop Header */}
+        <header className="bg-white shadow-sm border-b">
+          <div className="flex items-center justify-between p-4 lg:px-8">
             <button 
-              onClick={() => setMenuAberto(!menuAberto)}
-              className="lg:hidden text-gray-700 hover:text-gray-900 mr-3"
+              onClick={() => setMenuAberto(true)}
+              className="lg:hidden text-gray-600 hover:text-gray-900"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -396,11 +394,11 @@ export default function AlunoDashboard() {
 
               <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
                 <h3 className="text-xl font-bold text-gray-800 mb-4">Continuar Assistindo</h3>
-                {cursos.filter(c => c.progresso > 0 && c.progresso < 100).length === 0 ? (
+                {cursos.filter(c => c.progresso < 100).length === 0 ? (
                   <p className="text-gray-500">Nenhum curso em andamento</p>
                 ) : (
                   <div className="space-y-4">
-                    {cursos.filter(c => c.progresso > 0 && c.progresso < 100).map(curso => (
+                    {cursos.filter(c => c.progresso < 100).map(curso => (
                       <div key={curso.id} className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
                         <div className="flex-shrink-0">
                           {curso.thumbnail ? (
@@ -434,9 +432,9 @@ export default function AlunoDashboard() {
                 <div className="space-y-3">
                   {cursos.slice(0, 5).map((curso, idx) => (
                     <div key={idx} className="flex items-center gap-3 text-sm">
-                      <span className="text-2xl">{idx === 0 ? '📖' : idx === 1 ? '✅' : '📝'}</span>
+                      <span className="text-2xl">📝</span>
                       <span className="text-gray-600">
-                        Você {idx === 0 ? 'assistiu' : idx === 1 ? 'completou' : 'iniciou'} <strong>{curso.titulo}</strong>
+                        Você se matriculou no curso <strong>{curso.titulo}</strong>
                       </span>
                       <span className="text-gray-400 ml-auto">{new Date(curso.dataInscricao).toLocaleDateString('pt-BR')}</span>
                     </div>
@@ -1145,7 +1143,7 @@ export default function AlunoDashboard() {
             </div>
           )}
         </div>
-      </main>
+      </div>
     </div>
   );
 }
