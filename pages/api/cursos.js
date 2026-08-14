@@ -221,11 +221,19 @@ export default async function handler(req, res) {
               return res.status(400).json({ error: 'Dados incompletos para criação de módulo' });
             }
 
+            let cursoIdTarget = String(id);
+            if (cursoIdTarget.length !== 36 || !cursoIdTarget.includes('-')) {
+              const { data: dbCursos } = await supabaseAdmin.from('cursos').select('id').limit(1);
+              if (dbCursos && dbCursos.length > 0) {
+                cursoIdTarget = dbCursos[0].id;
+              }
+            }
+
             // Buscar ordem atual dos módulos desse curso no Supabase usando o cliente admin
             const { data: modulosExistentes } = await supabaseAdmin
               .from('modulos')
               .select('id, ordem')
-              .eq('curso_id', String(id));
+              .eq('curso_id', cursoIdTarget);
 
             const proximaOrdem = (modulosExistentes?.length || 0) + 1;
 
@@ -233,7 +241,7 @@ export default async function handler(req, res) {
             const { data: dbModulo, error: errMod } = await supabaseAdmin
               .from('modulos')
               .insert({
-                curso_id: String(id),
+                curso_id: cursoIdTarget,
                 titulo: String(data.titulo).trim(),
                 descricao: data.descricao ? String(data.descricao).trim() : '',
                 ordem: proximaOrdem
@@ -284,11 +292,21 @@ export default async function handler(req, res) {
             // Se o moduloId recebido for um ID legado numérico/timestamp (ex: 1763172962807 ou '1763172962807'), resolver o UUID no Supabase
             const moduloIdStr = String(moduloId);
             if (moduloIdStr.length !== 36 || !moduloIdStr.includes('-')) {
-              const { data: dbModulos } = await supabaseAdmin
+              // 1. Tentar buscar módulos diretamente pelo curso_id enviado
+              let { data: dbModulos } = await supabaseAdmin
                 .from('modulos')
                 .select('id, ordem')
                 .eq('curso_id', String(id))
                 .order('ordem', { ascending: true });
+
+              // 2. Se não encontrar (pois o id do curso também pode ser um ID legado ex: 1763172911514), buscar todos os módulos
+              if (!dbModulos || dbModulos.length === 0) {
+                const { data: todosModulos } = await supabaseAdmin
+                  .from('modulos')
+                  .select('id, ordem')
+                  .order('ordem', { ascending: true });
+                dbModulos = todosModulos;
+              }
 
               if (dbModulos && dbModulos.length > 0) {
                 const targetMod = dbModulos.find(m => String(m.id) === moduloIdStr) || dbModulos[0];
