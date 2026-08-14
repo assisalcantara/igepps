@@ -221,16 +221,16 @@ export default async function handler(req, res) {
               return res.status(400).json({ error: 'Dados incompletos para criação de módulo' });
             }
 
-            // Buscar ordem atual dos módulos desse curso no Supabase
-            const { data: modulosExistentes } = await supabase
+            // Buscar ordem atual dos módulos desse curso no Supabase usando o cliente admin
+            const { data: modulosExistentes } = await supabaseAdmin
               .from('modulos')
               .select('id, ordem')
               .eq('curso_id', String(id));
 
             const proximaOrdem = (modulosExistentes?.length || 0) + 1;
 
-            // Inserir módulo no Supabase PostgreSQL
-            const { data: dbModulo, error: errMod } = await supabase
+            // Inserir módulo no Supabase PostgreSQL usando o cliente admin
+            const { data: dbModulo, error: errMod } = await supabaseAdmin
               .from('modulos')
               .insert({
                 curso_id: String(id),
@@ -276,9 +276,23 @@ export default async function handler(req, res) {
             break;
 
           case 'addAula': {
-            const moduloId = data.moduloId;
+            let moduloId = data.moduloId;
             if (!moduloId || !data.titulo) {
               return res.status(400).json({ error: 'Dados incompletos para criação de aula (moduloId e titulo são obrigatórios)' });
+            }
+
+            // Se o moduloId recebido for um ID numérico legado (ex: '1763172962807'), resolver o UUID no Supabase
+            if (typeof moduloId === 'string' && moduloId.length !== 36 && !moduloId.includes('-')) {
+              const { data: dbModulos } = await supabaseAdmin
+                .from('modulos')
+                .select('id, ordem')
+                .eq('curso_id', String(id))
+                .order('ordem', { ascending: true });
+
+              if (dbModulos && dbModulos.length > 0) {
+                // Tenta associar pela ordem ou pega o primeiro módulo do curso
+                moduloId = dbModulos[0].id;
+              }
             }
 
             const duracaoNum = parseInt(data.duracao) || 0;
