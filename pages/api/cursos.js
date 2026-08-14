@@ -1,6 +1,11 @@
 import fs from 'fs';
 import path from 'path';
 import { supabase } from '../../lib/supabase';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://kmlwgvrtissssknqpvbg.supabase.co';
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseAdmin = supabaseServiceKey ? createClient(supabaseUrl, supabaseServiceKey) : supabase;
 
 const cursosFilePath = path.join(process.cwd(), 'data', 'cursos.json');
 
@@ -191,7 +196,9 @@ export default async function handler(req, res) {
         const cursos = lerCursos();
         const cursoIndex = cursos.findIndex(c => String(c.id) === String(id));
         
-        if (cursoIndex === -1) {
+        // Ações já migradas para o Supabase PostgreSQL funcionam com id do banco real (UUID)
+        const acoesMigradasSupabase = ['addModulo', 'addAula', 'addMaterial'];
+        if (cursoIndex === -1 && !acoesMigradasSupabase.includes(action)) {
           return res.status(404).json({ error: 'Curso não encontrado' });
         }
 
@@ -276,16 +283,16 @@ export default async function handler(req, res) {
 
             const duracaoNum = parseInt(data.duracao) || 0;
 
-            // Consultar a ordem atual das aulas deste módulo no Supabase
-            const { data: aulasExistentes } = await supabase
+            // Consultar a ordem atual das aulas deste módulo no Supabase usando o cliente admin
+            const { data: aulasExistentes } = await supabaseAdmin
               .from('aulas')
               .select('id, ordem')
               .eq('modulo_id', String(moduloId));
 
             const proximaOrdem = (aulasExistentes?.length || 0) + 1;
 
-            // Inserir aula no Supabase PostgreSQL
-            const { data: dbAula, error: errAula } = await supabase
+            // Inserir aula no Supabase PostgreSQL usando o cliente admin (bypass RLS)
+            const { data: dbAula, error: errAula } = await supabaseAdmin
               .from('aulas')
               .insert({
                 modulo_id: String(moduloId),
