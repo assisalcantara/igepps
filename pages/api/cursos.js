@@ -345,7 +345,7 @@ export default async function handler(req, res) {
 
             // Buscar e retornar a árvore do curso atualizada do Supabase
             const dbCursosAtualizados = await lerCursosSupabase();
-            const cursoAtualizado = dbCursosAtualizados?.find(c => String(c.id) === String(id));
+            const cursoAtualizado = dbCursosAtualizados?.find(c => String(c.id) === String(id) || (dbModulo && String(c.id) === String(dbModulo.curso_id))) || dbCursosAtualizados?.[0];
 
             if (cursoAtualizado) {
               return res.status(200).json(cursoAtualizado);
