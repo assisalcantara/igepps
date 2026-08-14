@@ -281,8 +281,9 @@ export default async function handler(req, res) {
               return res.status(400).json({ error: 'Dados incompletos para criação de aula (moduloId e titulo são obrigatórios)' });
             }
 
-            // Se o moduloId recebido for um ID numérico legado (ex: '1763172962807'), resolver o UUID no Supabase
-            if (typeof moduloId === 'string' && moduloId.length !== 36 && !moduloId.includes('-')) {
+            // Se o moduloId recebido for um ID legado numérico/timestamp (ex: 1763172962807 ou '1763172962807'), resolver o UUID no Supabase
+            const moduloIdStr = String(moduloId);
+            if (moduloIdStr.length !== 36 || !moduloIdStr.includes('-')) {
               const { data: dbModulos } = await supabaseAdmin
                 .from('modulos')
                 .select('id, ordem')
@@ -290,8 +291,8 @@ export default async function handler(req, res) {
                 .order('ordem', { ascending: true });
 
               if (dbModulos && dbModulos.length > 0) {
-                // Tenta associar pela ordem ou pega o primeiro módulo do curso
-                moduloId = dbModulos[0].id;
+                const targetMod = dbModulos.find(m => String(m.id) === moduloIdStr) || dbModulos[0];
+                moduloId = targetMod.id;
               }
             }
 
