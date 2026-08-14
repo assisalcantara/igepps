@@ -27,7 +27,7 @@ function lerCursos() {
 // Função para buscar e adaptar a árvore completa de cursos do Supabase PostgreSQL
 async function lerCursosSupabase() {
   try {
-    const { data: dbCursos, error } = await supabase
+    const { data: dbCursos, error } = await supabaseAdmin
       .from('cursos')
       .select('id, titulo, descricao, categoria, carga_horaria, thumbnail_url, video_apresentacao_url, ativo, created_at, modulos ( id, titulo, descricao, ordem, aulas ( id, titulo, descricao, video_url, duracao_minutos, ordem, materiais_apoio ( id, titulo, tipo, arquivo_url ) ) ), avaliacoes!avaliacoes_curso_id_fkey ( id, titulo, descricao, nota_minima, duracao_minutos, questoes ( id, enunciado, ordem, opcoes ( id, texto, is_correta, ordem ) ) )');
 
