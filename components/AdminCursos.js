@@ -568,8 +568,9 @@ export default function AdminCursos() {
           if (response.ok) {
             const cursoAtualizado = await response.json();
             setCursoSelecionado(cursoAtualizado);
-            const moduloAtualizado = cursoAtualizado.modulos.find(m => m.id === moduloSelecionado.id);
-            setModuloSelecionado(moduloAtualizado);
+            const moduloAtualizado = cursoAtualizado?.modulos?.find(m => String(m.id) === String(moduloSelecionado.id))
+              || (cursoAtualizado?.modulos && cursoAtualizado.modulos.length > 0 ? cursoAtualizado.modulos[0] : moduloSelecionado);
+            if (moduloAtualizado) setModuloSelecionado(moduloAtualizado);
             await carregarCursos();
             setVisualizacao('modulo');
             setModalState({

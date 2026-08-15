@@ -197,7 +197,7 @@ export default async function handler(req, res) {
         const cursoIndex = cursos.findIndex(c => String(c.id) === String(id));
         
         // Ações já migradas para o Supabase PostgreSQL funcionam com id do banco real (UUID)
-        const acoesMigradasSupabase = ['addModulo', 'addAula', 'addMaterial'];
+        const acoesMigradasSupabase = ['addModulo', 'addAula', 'addMaterial', 'deleteModulo', 'deleteAula'];
         if (cursoIndex === -1 && !acoesMigradasSupabase.includes(action)) {
           return res.status(404).json({ error: 'Curso não encontrado' });
         }
@@ -279,9 +279,33 @@ export default async function handler(req, res) {
             }
             break;
 
-          case 'deleteModulo':
-            cursos[cursoIndex].modulos = cursos[cursoIndex].modulos.filter(m => String(m.id) !== String(data.moduloId));
-            break;
+          case 'deleteModulo': {
+            const moduloId = data.moduloId;
+            if (!moduloId) {
+              return res.status(400).json({ error: 'moduloId é obrigatório para exclusão' });
+            }
+
+            // Excluir o módulo no Supabase PostgreSQL usando cliente admin (com remoção em cascata no DB)
+            const { error: errDelMod } = await supabaseAdmin
+              .from('modulos')
+              .delete()
+              .eq('id', String(moduloId));
+
+            if (errDelMod) {
+              console.error('Erro ao excluir módulo no Supabase:', errDelMod);
+              return res.status(500).json({ error: 'Falha ao excluir módulo no banco de dados', detalhe: errDelMod.message });
+            }
+
+            // Retornar a árvore atualizada do curso
+            const dbCursosAtualizados = await lerCursosSupabase();
+            const cursoAtualizado = dbCursosAtualizados?.find(c => String(c.id) === String(id)) || dbCursosAtualizados?.[0];
+
+            if (cursoAtualizado) {
+              return res.status(200).json(cursoAtualizado);
+            }
+
+            return res.status(200).json({ mensagem: 'Módulo excluído com sucesso' });
+          }
 
           case 'addAula': {
             let moduloId = data.moduloId;
@@ -380,12 +404,33 @@ export default async function handler(req, res) {
             }
             break;
 
-          case 'deleteAula':
-            const moduloAula = cursos[cursoIndex].modulos.find(m => m.id === data.moduloId);
-            if (moduloAula) {
-              moduloAula.aulas = moduloAula.aulas.filter(a => a.id !== data.aulaId);
+          case 'deleteAula': {
+            const aulaId = data.aulaId;
+            if (!aulaId) {
+              return res.status(400).json({ error: 'aulaId é obrigatório para exclusão' });
             }
-            break;
+
+            // Excluir a aula no Supabase PostgreSQL usando cliente admin (bypass RLS)
+            const { error: errDelAula } = await supabaseAdmin
+              .from('aulas')
+              .delete()
+              .eq('id', String(aulaId));
+
+            if (errDelAula) {
+              console.error('Erro ao excluir aula no Supabase:', errDelAula);
+              return res.status(500).json({ error: 'Falha ao excluir aula no banco de dados', detalhe: errDelAula.message });
+            }
+
+            // Retornar a árvore atualizada do curso
+            const dbCursosAtualizados = await lerCursosSupabase();
+            const cursoAtualizado = dbCursosAtualizados?.find(c => String(c.id) === String(id)) || dbCursosAtualizados?.[0];
+
+            if (cursoAtualizado) {
+              return res.status(200).json(cursoAtualizado);
+            }
+
+            return res.status(200).json({ mensagem: 'Aula excluída com sucesso' });
+          }
 
           case 'addMaterial': {
             const aulaId = data.aulaId;
