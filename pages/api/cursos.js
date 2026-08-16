@@ -197,7 +197,7 @@ export default async function handler(req, res) {
         const cursoIndex = cursos.findIndex(c => String(c.id) === String(id));
         
         // Ações já migradas para o Supabase PostgreSQL funcionam com id do banco real (UUID)
-        const acoesMigradasSupabase = ['addModulo', 'addAula', 'addMaterial', 'deleteModulo', 'deleteAula'];
+        const acoesMigradasSupabase = ['addModulo', 'updateModulo', 'deleteModulo', 'addAula', 'updateAula', 'deleteAula', 'addMaterial'];
         if (cursoIndex === -1 && !acoesMigradasSupabase.includes(action)) {
           return res.status(404).json({ error: 'Curso não encontrado' });
         }
@@ -272,12 +272,62 @@ export default async function handler(req, res) {
             });
           }
 
-          case 'updateModulo':
-            const moduloIndex = cursos[cursoIndex].modulos.findIndex(m => String(m.id) === String(data.moduloId));
-            if (moduloIndex !== -1) {
-              cursos[cursoIndex].modulos[moduloIndex] = { ...cursos[cursoIndex].modulos[moduloIndex], ...data.updates };
+          case 'updateModulo': {
+            let moduloIdTarget = data.moduloId;
+            const updates = data.updates || {};
+
+            if (!moduloIdTarget) {
+              return res.status(400).json({ error: 'moduloId é obrigatório para atualização de módulo' });
             }
-            break;
+
+            // Resolução de moduloId legado se não for UUID
+            const moduloIdStr = String(moduloIdTarget);
+            if (moduloIdStr.length !== 36 || !moduloIdStr.includes('-')) {
+              let { data: dbModulos } = await supabaseAdmin
+                .from('modulos')
+                .select('id, ordem')
+                .eq('curso_id', String(id))
+                .order('ordem', { ascending: true });
+
+              if (!dbModulos || dbModulos.length === 0) {
+                const { data: todosModulos } = await supabaseAdmin
+                  .from('modulos')
+                  .select('id, ordem')
+                  .order('ordem', { ascending: true });
+                dbModulos = todosModulos;
+              }
+
+              if (dbModulos && dbModulos.length > 0) {
+                const targetMod = dbModulos.find(m => String(m.id) === moduloIdStr) || dbModulos[0];
+                moduloIdTarget = targetMod.id;
+              }
+            }
+
+            // Atualizar título e descrição do módulo no Supabase PostgreSQL
+            const payloadUpdate = {};
+            if (updates.titulo) payloadUpdate.titulo = String(updates.titulo).trim();
+            if (updates.descricao !== undefined) payloadUpdate.descricao = String(updates.descricao).trim();
+
+            const { error: errUpMod } = await supabaseAdmin
+              .from('modulos')
+              .update(payloadUpdate)
+              .eq('id', String(moduloIdTarget));
+
+            if (errUpMod) {
+              console.error('Erro ao atualizar módulo no Supabase:', errUpMod);
+              return res.status(500).json({ error: 'Falha ao atualizar módulo no banco de dados', detalhe: errUpMod.message });
+            }
+
+            // Retornar a árvore atualizada do curso
+            const dbCursosAtualizados = await lerCursosSupabase();
+            const cursoAtualizado = dbCursosAtualizados?.find(c => String(c.id) === String(id)) || dbCursosAtualizados?.[0];
+
+            if (cursoAtualizado) {
+              return res.status(200).json(cursoAtualizado);
+            }
+
+            return res.status(200).json({ mensagem: 'Módulo atualizado com sucesso' });
+          }
 
           case 'deleteModulo': {
             const moduloId = data.moduloId;
@@ -388,21 +438,38 @@ export default async function handler(req, res) {
             });
           }
 
-          case 'updateAula':
-            const mod = cursos[cursoIndex].modulos.find(m => String(m.id) === String(data.moduloId));
-            if (mod) {
-              const aulaIndex = mod.aulas.findIndex(a => String(a.id) === String(data.aulaId));
-              if (aulaIndex !== -1) {
-                mod.aulas[aulaIndex] = {
-                  ...mod.aulas[aulaIndex],
-                  titulo: data.titulo,
-                  descricao: data.descricao,
-                  videoUrl: data.videoUrl,
-                  duracao: data.duracao
-                };
-              }
+          case 'updateAula': {
+            const aulaId = data.aulaId;
+            if (!aulaId) {
+              return res.status(400).json({ error: 'aulaId é obrigatório para edição' });
             }
-            break;
+
+            const payloadAula = {};
+            if (data.titulo) payloadAula.titulo = String(data.titulo).trim();
+            if (data.descricao !== undefined) payloadAula.descricao = String(data.descricao).trim();
+            if (data.videoUrl !== undefined) payloadAula.video_url = String(data.videoUrl).trim();
+            if (data.duracao !== undefined) payloadAula.duracao_minutos = parseInt(data.duracao) || 0;
+
+            const { error: errUpAula } = await supabaseAdmin
+              .from('aulas')
+              .update(payloadAula)
+              .eq('id', String(aulaId));
+
+            if (errUpAula) {
+              console.error('Erro ao atualizar aula no Supabase:', errUpAula);
+              return res.status(500).json({ error: 'Falha ao atualizar aula no banco de dados', detalhe: errUpAula.message });
+            }
+
+            // Retornar a árvore atualizada do curso
+            const dbCursosAtualizados = await lerCursosSupabase();
+            const cursoAtualizado = dbCursosAtualizados?.find(c => String(c.id) === String(id)) || dbCursosAtualizados?.[0];
+
+            if (cursoAtualizado) {
+              return res.status(200).json(cursoAtualizado);
+            }
+
+            return res.status(200).json({ mensagem: 'Aula atualizada com sucesso' });
+          }
 
           case 'deleteAula': {
             const aulaId = data.aulaId;
